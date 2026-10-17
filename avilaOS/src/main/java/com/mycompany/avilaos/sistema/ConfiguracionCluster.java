@@ -1,12 +1,13 @@
 package com.mycompany.avilaos.sistema;
 
+import com.mycompany.avilaos.sincronizacion.ProveedorLatencia;
 import com.mycompany.avilaos.so.planificacion.PoliticaPlanificacion;
 
 /**
  * Parámetros de la simulación. Es solo datos; la GUI de configuración los llena y
  * (pendiente) se guardan/cargan en JSON o CSV.
  */
-public class ConfiguracionCluster {
+public class ConfiguracionCluster implements ProveedorLatencia {
 
     private int duracionCicloMs = 500;
     private int latenciaRed = 3;
@@ -33,6 +34,7 @@ public class ConfiguracionCluster {
     public int getNumComputadores() { return ramPorComputador.length; }
     public int getDuracionCicloMs() { return duracionCicloMs; }
     public void setDuracionCicloMs(int ms) { this.duracionCicloMs = ms; }
+    @Override
     public int getLatenciaRed() { return latenciaRed; }
     public void setLatenciaRed(int ciclos) { this.latenciaRed = ciclos; }
     public int getQuantum() { return quantum; }
