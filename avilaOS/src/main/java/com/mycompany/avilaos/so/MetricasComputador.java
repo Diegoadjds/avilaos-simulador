@@ -6,7 +6,7 @@ import com.mycompany.avilaos.modelo.PCB;
 /**
  * Métricas de UN computador. Solo las escribe el hilo de ese computador (por eso los
  * contadores volatile son suficientes) y las lee la GUI.
- * Pendiente: equidad (por ejemplo, índice de Jain) y métricas del productor-consumidor por buffer.
+ * La equidad se calcula aparte (ver Equidad y Kernel.getEquidad()).
  */
 public class MetricasComputador {
 
@@ -84,6 +84,11 @@ public class MetricasComputador {
     }
 
     public long getCiclosTotales() { return ciclosTotales; }
+    public long getCiclosOcupada() { return ciclosOcupada; }
+    public long getSumaRespuesta() { return sumaRespuesta; }
+    public long getConRespuesta() { return conRespuesta; }
+    public long getSumaBloqueoSemaforo() { return sumaBloqueoSemaforo; }
+    public long getBloqueosSemaforo() { return bloqueosSemaforo; }
     public long getCompletados() { return completados; }
     public long getVencidos() { return vencidos; }
 

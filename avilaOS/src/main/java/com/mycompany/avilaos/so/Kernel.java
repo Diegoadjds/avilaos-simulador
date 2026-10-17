@@ -296,6 +296,27 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
     public MemoriaPrincipal getRam() { return ram; }
     public MetricasComputador getMetricas() { return metricas; }
 
+    /** Todos los procesos que ha recibido este computador (en cualquier estado). */
+    public PCB[] getTodosLosProcesos() {
+        PCB[] a = getNuevos();
+        PCB[] b = getListos();
+        PCB[] c = getBloqueados();
+        PCB[] d = getTerminados();
+        PCB enCpu = cpu.getProcesoActual();
+        PCB[] todos = new PCB[a.length + b.length + c.length + d.length + (enCpu != null ? 1 : 0)];
+        int n = 0;
+        for (PCB p : a) { todos[n++] = p; }
+        for (PCB p : b) { todos[n++] = p; }
+        for (PCB p : c) { todos[n++] = p; }
+        for (PCB p : d) { todos[n++] = p; }
+        if (enCpu != null) { todos[n++] = enCpu; }
+        return todos;
+    }
+
+    public double getEquidad() {
+        return Equidad.jain(getTodosLosProcesos(), cicloActual);
+    }
+
     /** Cantidad de procesos vivos en este computador (para el balanceo de carga automático). */
     public int getCarga() {
         return nuevos.tamano() + listos.tamano() + bloqueados.tamano()
