@@ -63,12 +63,17 @@ public class RelojGlobal implements Runnable {
         h.start();
     }
 
-    public synchronized void iniciar() {
+    public void iniciar() {
+        iniciar(false);
+    }
+
+    /** Inicia el reloj, opcionalmente ya pausado (para avanzar ciclo por ciclo desde el principio). */
+    public synchronized void iniciar(boolean pausadoAlInicio) {
         if (corriendo) {
             return;
         }
         corriendo = true;
-        pausado = false;
+        pausado = pausadoAlInicio;
         hilo = new Thread(this, "RelojGlobal");
         hilo.setDaemon(true);
         hilo.start();
