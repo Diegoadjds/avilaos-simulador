@@ -1,12 +1,16 @@
 package com.mycompany.avilaos.gui;
 
 import com.mycompany.avilaos.hardware.RelojGlobal;
+import com.mycompany.avilaos.persistencia.ErrorEscenario;
+import com.mycompany.avilaos.persistencia.Escenario;
+import com.mycompany.avilaos.persistencia.RepositorioEscenario;
 import com.mycompany.avilaos.sistema.ClusterAvilaOS;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.nio.file.Path;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -68,8 +72,13 @@ public class PanelPrincipal extends JPanel {
         btnProceso.addActionListener(e -> new DialogoProceso(SwingUtilities.getWindowAncestor(this), cluster).setVisible(true));
         JButton btnBuffer = new JButton("Nuevo buffer…");
         btnBuffer.addActionListener(e -> new DialogoBuffer(SwingUtilities.getWindowAncestor(this), cluster).setVisible(true));
-        controles.add(btnProceso);
-        controles.add(btnBuffer);
+        JButton btnGuardar = new JButton("Guardar escenario…");
+        btnGuardar.setToolTipText("Guarda en un archivo JSON la configuración actual y todos los buffers y procesos creados");
+        btnGuardar.addActionListener(e -> guardarEscenario());
+        JPanel fila2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        fila2.add(btnProceso);
+        fila2.add(btnBuffer);
+        fila2.add(btnGuardar);
 
         btnIniciar.addActionListener(e -> cluster.iniciar());
         btnPausa.addActionListener(e -> {
@@ -111,11 +120,29 @@ public class PanelPrincipal extends JPanel {
         pestanas.addTab("Simulación", simulacion);
         pestanas.addTab("Métricas", panelMetricas);
 
-        add(controles, BorderLayout.NORTH);
+        JPanel barra = new JPanel(new GridLayout(2, 1));
+        barra.add(controles);
+        barra.add(fila2);
+        add(barra, BorderLayout.NORTH);
         add(pestanas, BorderLayout.CENTER);
 
         temporizador = new Timer(REFRESCO_MS, e -> refrescar());
         refrescar();
+    }
+
+    /** Guarda en un archivo JSON la configuración vigente y todos los buffers y procesos creados. */
+    private void guardarEscenario() {
+        Escenario escenario = Escenario.capturar(cluster);
+        Path ruta = DialogosEscenario.elegirParaGuardar(this, "escenario.json");
+        if (ruta == null) {
+            return;
+        }
+        try {
+            RepositorioEscenario.guardar(ruta, escenario);
+            DialogosEscenario.informar(this, "Escenario guardado en:\n" + ruta + "\n(" + escenario.describirCarga() + ")");
+        } catch (ErrorEscenario ex) {
+            DialogosEscenario.error(this, ex.getMessage());
+        }
     }
 
     /** Arranca el refresco periódico de la pantalla. */
