@@ -20,6 +20,8 @@ public class ClusterAvilaOS {
     private final RegistroEventos registro = new RegistroEventos();
     private final Computador[] computadores;
     private final ListaSegura<BufferAcotado> buffers = new ListaSegura<>();
+    /** Especificación de cada proceso aceptado, tal como la definió el usuario (sirve para guardar escenarios). */
+    private final ListaSegura<EspecificacionProceso> especificacionesCreadas = new ListaSegura<>();
     private int siguienteIdBuffer = 1;
 
     public ClusterAvilaOS(ConfiguracionCluster configuracion) {
@@ -94,6 +96,7 @@ public class ClusterAvilaOS {
             throw new IllegalArgumentException("El proceso necesita " + esp.memoria()
                     + " de memoria y la RAM total del computador " + destino + " es menor");
         }
+        especificacionesCreadas.agregarAlFinal(esp);
         return pcb;
     }
 
@@ -152,6 +155,11 @@ public class ClusterAvilaOS {
     public ConfiguracionCluster getConfiguracion() { return configuracion; }
 
     public BufferAcotado[] getBuffers() { return buffers.aArreglo(new BufferAcotado[0]); }
+
+    /** Especificaciones de todos los procesos creados hasta ahora, en orden de creación. */
+    public EspecificacionProceso[] getEspecificacionesCreadas() {
+        return especificacionesCreadas.aArreglo(new EspecificacionProceso[0]);
+    }
 
     /** Buffer por su número (B1 = 1) o null si no existe. */
     public BufferAcotado getBuffer(int id) {
