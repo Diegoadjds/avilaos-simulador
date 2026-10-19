@@ -1,7 +1,11 @@
 package com.mycompany.avilaos.gui;
 
+import com.mycompany.avilaos.modelo.EspecificacionProceso;
+import com.mycompany.avilaos.persistencia.BufferEscenario;
+import com.mycompany.avilaos.persistencia.ErrorEscenario;
+import com.mycompany.avilaos.persistencia.Escenario;
+import com.mycompany.avilaos.persistencia.RepositorioEscenario;
 import com.mycompany.avilaos.sistema.ClusterAvilaOS;
-import com.mycompany.avilaos.sistema.ConfiguracionCluster;
 import com.mycompany.avilaos.so.planificacion.PoliticaPlanificacion;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -9,6 +13,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.nio.file.Path;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
@@ -19,10 +24,14 @@ import javax.swing.JSpinner;
 import javax.swing.JTextField;
 import javax.swing.SpinnerNumberModel;
 
-/** Vista de configuración: cantidad de computadores, RAM, políticas iniciales, ciclo, quantum y latencia de red. */
+/**
+ * Vista de configuración: cantidad de computadores, RAM, políticas iniciales, ciclo, quantum y latencia de red.
+ * Permite cargar un escenario desde un archivo JSON (parámetros + buffers y procesos iniciales) y guardar
+ * la configuración actual para usarla en futuras simulaciones.
+ */
 public class VentanaConfiguracion extends JFrame {
 
-    private static final int MAX_COMPUTADORES = 6;
+    private static final int MAX_COMPUTADORES = Escenario.MAX_COMPUTADORES;
 
     private final JSpinner spComputadores = new JSpinner(new SpinnerNumberModel(2, 2, MAX_COMPUTADORES, 1));
     private final JTextField txtCiclo = new JTextField("500", 8);
@@ -33,9 +42,38 @@ public class VentanaConfiguracion extends JFrame {
     @SuppressWarnings("unchecked")
     private final JComboBox<PoliticaPlanificacion>[] cmbPolitica = new JComboBox[MAX_COMPUTADORES];
     private final JPanel filas = new JPanel(new GridLayout(0, 3, 8, 4));
+    private final JLabel lblCarga = new JLabel();
+    private final JButton btnQuitarCarga = new JButton("Quitar carga");
+
+    /** Buffers y procesos iniciales leídos de un archivo (null si no se cargó ninguno). */
+    private Escenario cargaInicial;
+    private String nombreArchivoCarga = "";
 
     public VentanaConfiguracion() {
         super("ÁvilaOS – Configuración de la simulación");
+
+        JPanel archivo = new JPanel(new GridLayout(2, 1));
+        archivo.setBorder(BorderFactory.createTitledBorder("Escenario (archivo JSON)"));
+        JButton btnCargar = new JButton("Cargar escenario…");
+        btnCargar.setToolTipText("Lee parámetros, buffers y procesos iniciales desde un archivo JSON");
+        btnCargar.addActionListener(e -> cargarEscenario());
+        JButton btnGuardar = new JButton("Guardar escenario…");
+        btnGuardar.setToolTipText("Guarda los parámetros de esta ventana (y la carga inicial, si hay) en un archivo JSON");
+        btnGuardar.addActionListener(e -> guardarEscenario());
+        btnQuitarCarga.addActionListener(e -> {
+            cargaInicial = null;
+            actualizarEtiquetaCarga();
+            pack();
+        });
+        JPanel filaBotones = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+        filaBotones.add(btnCargar);
+        filaBotones.add(btnGuardar);
+        JPanel filaCarga = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
+        filaCarga.add(lblCarga);
+        filaCarga.add(btnQuitarCarga);
+        archivo.add(filaBotones);
+        archivo.add(filaCarga);
+        actualizarEtiquetaCarga();
 
         JPanel globales = new JPanel(new GridBagLayout());
         globales.setBorder(BorderFactory.createTitledBorder("Parámetros generales"));
@@ -67,7 +105,10 @@ public class VentanaConfiguracion extends JFrame {
 
         JPanel centro = new JPanel(new BorderLayout(8, 8));
         centro.setBorder(BorderFactory.createEmptyBorder(10, 10, 4, 10));
-        centro.add(globales, BorderLayout.NORTH);
+        JPanel norte = new JPanel(new BorderLayout(0, 8));
+        norte.add(archivo, BorderLayout.NORTH);
+        norte.add(globales, BorderLayout.CENTER);
+        centro.add(norte, BorderLayout.NORTH);
         centro.add(filas, BorderLayout.CENTER);
         setLayout(new BorderLayout());
         add(centro, BorderLayout.CENTER);
@@ -102,25 +143,95 @@ public class VentanaConfiguracion extends JFrame {
         pack();
     }
 
+    /** Lee y valida los campos de la ventana (más la carga inicial, si hay) y arma el escenario. */
+    private Escenario construirEscenario() {
+        int n = (Integer) spComputadores.getValue();
+        int ciclo = Entradas.entero(txtCiclo, "Duración del ciclo", Escenario.CICLO_MIN_MS, Escenario.CICLO_MAX_MS);
+        int latencia = Entradas.entero(txtLatencia, "Latencia de red", 0, Escenario.LATENCIA_MAX);
+        int quantum = Entradas.entero(txtQuantum, "Quantum", 1, Escenario.QUANTUM_MAX);
+        int[] ram = new int[n];
+        PoliticaPlanificacion[] politicas = new PoliticaPlanificacion[n];
+        for (int i = 0; i < n; i++) {
+            ram[i] = Entradas.entero(txtRam[i], "RAM del computador " + (i + 1), 1, Escenario.RAM_MAX);
+            politicas[i] = (PoliticaPlanificacion) cmbPolitica[i].getSelectedItem();
+        }
+        BufferEscenario[] buffers = cargaInicial == null ? new BufferEscenario[0] : cargaInicial.getBuffers();
+        EspecificacionProceso[] procesos = cargaInicial == null
+                ? new EspecificacionProceso[0] : cargaInicial.getProcesos();
+        Escenario escenario = new Escenario(ciclo, latencia, quantum, ram, politicas, buffers, procesos);
+        String error = escenario.validar();
+        if (error != null) {
+            throw new IllegalArgumentException(error);
+        }
+        return escenario;
+    }
+
     private void abrirSimulador() {
         try {
-            int n = (Integer) spComputadores.getValue();
-            int ciclo = Entradas.entero(txtCiclo, "Duración del ciclo", 10, 10000);
-            int latencia = Entradas.entero(txtLatencia, "Latencia de red", 0, 1000);
-            int quantum = Entradas.entero(txtQuantum, "Quantum", 1, 1000);
-            ConfiguracionCluster cfg = new ConfiguracionCluster(n);
-            cfg.setDuracionCicloMs(ciclo);
-            cfg.setLatenciaRed(latencia);
-            cfg.setQuantum(quantum);
-            for (int i = 0; i < n; i++) {
-                cfg.setRam(i, Entradas.entero(txtRam[i], "RAM del computador " + (i + 1), 1, 1000000));
-                cfg.setPolitica(i, (PoliticaPlanificacion) cmbPolitica[i].getSelectedItem());
-            }
-            ClusterAvilaOS cluster = new ClusterAvilaOS(cfg);
+            ClusterAvilaOS cluster = construirEscenario().crearCluster();
             new VentanaPrincipal(cluster).setVisible(true);
             dispose();
         } catch (IllegalArgumentException ex) {
             Entradas.error(this, ex.getMessage());
         }
+    }
+
+    private void cargarEscenario() {
+        Path ruta = DialogosEscenario.elegirParaAbrir(this);
+        if (ruta == null) {
+            return;
+        }
+        try {
+            aplicarAlFormulario(RepositorioEscenario.cargar(ruta), ruta.getFileName().toString());
+        } catch (ErrorEscenario ex) {
+            DialogosEscenario.error(this, "No se pudo cargar el escenario.\n\n" + ex.getMessage());
+        }
+    }
+
+    private void guardarEscenario() {
+        try {
+            Escenario escenario = construirEscenario();
+            Path ruta = DialogosEscenario.elegirParaGuardar(this, "escenario.json");
+            if (ruta == null) {
+                return;
+            }
+            RepositorioEscenario.guardar(ruta, escenario);
+            DialogosEscenario.informar(this, "Escenario guardado en:\n" + ruta + "\n(" + escenario.describirCarga() + ")");
+        } catch (IllegalArgumentException ex) {
+            Entradas.error(this, ex.getMessage());
+        } catch (ErrorEscenario ex) {
+            DialogosEscenario.error(this, ex.getMessage());
+        }
+    }
+
+    /** Vuelca un escenario leído de archivo en los campos de la ventana. */
+    private void aplicarAlFormulario(Escenario escenario, String nombreArchivo) {
+        int n = escenario.getNumComputadores();
+        spComputadores.setValue(n);
+        txtCiclo.setText(String.valueOf(escenario.getDuracionCicloMs()));
+        txtLatencia.setText(String.valueOf(escenario.getLatenciaRed()));
+        txtQuantum.setText(String.valueOf(escenario.getQuantum()));
+        for (int i = 0; i < n; i++) {
+            txtRam[i].setText(String.valueOf(escenario.getRam(i + 1)));
+            cmbPolitica[i].setSelectedItem(escenario.getPolitica(i + 1));
+        }
+        boolean hayCarga = escenario.getBuffers().length + escenario.getProcesos().length > 0;
+        cargaInicial = hayCarga ? escenario : null;
+        nombreArchivoCarga = nombreArchivo;
+        actualizarEtiquetaCarga();
+        pack();
+    }
+
+    private void actualizarEtiquetaCarga() {
+        if (cargaInicial == null) {
+            lblCarga.setText("Carga inicial: ninguna");
+        } else {
+            String nombre = nombreArchivoCarga.length() > 36
+                    ? nombreArchivoCarga.substring(0, 33) + "…" : nombreArchivoCarga;
+            lblCarga.setText("Carga inicial: " + cargaInicial.describirCarga() + " (" + nombre + ")");
+        }
+        btnQuitarCarga.setVisible(cargaInicial != null);
+        revalidate();
+        repaint();
     }
 }
