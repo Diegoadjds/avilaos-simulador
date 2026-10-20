@@ -63,14 +63,21 @@ public class Semaforo implements RecursoBloqueante {
         }
     }
 
-    /** Si un proceso muere esperando (deadline), sale de la cola y se devuelve su "wait". */
+    /**
+     * Si un proceso muere esperando (deadline), sale de la cola y se devuelve su "wait".
+     *
+     * @return false si el proceso ya no estaba en la cola: un semSignal ya lo había despertado,
+     *         así que ya tiene el permiso y quien lo termina debe devolverlo.
+     */
     @Override
-    public void cancelarEspera(PCB pcb) {
+    public boolean cancelarEspera(PCB pcb) {
         mutex.acquireUninterruptibly();
         try {
             if (espera.eliminar(pcb)) {
                 valor++;
+                return true;
             }
+            return false;
         } finally {
             mutex.release();
         }
