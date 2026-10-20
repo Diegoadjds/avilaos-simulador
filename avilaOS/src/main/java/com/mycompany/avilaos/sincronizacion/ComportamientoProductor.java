@@ -70,7 +70,45 @@ public class ComportamientoProductor implements ComportamientoProceso {
         }
     }
 
+    /**
+     * Deadline vencido a mitad del ciclo: devuelve lo que el productor tenía tomado.
+     * "paso" es la PRÓXIMA instrucción, así que indica cuántos semWait ya se hicieron.
+     * Primero se suelta el mutex y después el semáforo de conteo, como en el flujo normal.
+     */
+    @Override
+    public void liberarRecursos(PCB pcb, boolean esperabaEnCola, ContextoEjecucion ctx) {
+        switch (paso) {
+            case WAIT_MUTEX -> {          // ya hizo semWait(vacíos)
+                if (!esperabaEnCola) {
+                    soltar(buffer.getVacios(), pcb, ctx, buffer);
+                }
+            }
+            case ANYADIR -> {             // ya hizo semWait(mutex), y antes semWait(vacíos)
+                if (!esperabaEnCola) {
+                    soltar(buffer.getMutex(), pcb, ctx, buffer);
+                }
+                soltar(buffer.getVacios(), pcb, ctx, buffer);
+            }
+            case SIGNAL_MUTEX -> {        // el elemento ya está en el buffer: se completa el ciclo
+                soltar(buffer.getMutex(), pcb, ctx, buffer);
+                soltar(buffer.getLlenos(), pcb, ctx, buffer);
+            }
+            case SIGNAL_LLENOS -> soltar(buffer.getLlenos(), pcb, ctx, buffer);
+            default -> {
+                // PRODUCIR, ACCESO_REMOTO y WAIT_VACIOS: todavía no había tomado nada
+            }
+        }
+        paso = Paso.PRODUCIR;
+    }
+
     // ---- Utilidades compartidas con el consumidor ----
+
+    /** semSignal hecho por el kernel a nombre de un proceso que murió con el semáforo tomado. */
+    static void soltar(Semaforo semaforo, PCB pcb, ContextoEjecucion ctx, BufferAcotado buffer) {
+        ctx.registrarEvento("Proceso " + pcb + " vence su deadline con el semáforo '" + semaforo.getNombre()
+                + "' del buffer " + buffer.getNombre() + " tomado: el sistema operativo lo libera");
+        semaforo.semSignal();
+    }
 
     static ResultadoInstruccion accesoRemoto(PCB pcb, ContextoEjecucion ctx, BufferAcotado buffer,
             ProveedorLatencia red) {

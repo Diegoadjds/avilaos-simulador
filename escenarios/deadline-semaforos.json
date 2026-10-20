@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "duracionCicloMs": 400,
+  "latenciaRed": 3,
+  "quantum": 3,
+  "computadores": [
+    { "ram": 100, "politica": "FCFS" },
+    { "ram": 100, "politica": "FCFS" }
+  ],
+  "buffers": [
+    { "capacidad": 3, "computador": 1 }
+  ],
+  "procesos": [
+    { "nombre": "Prod-corto", "tipo": "PRODUCTOR", "memoria": 10, "prioridad": 1, "deadline": 9, "buffer": 1, "ciclosPorElemento": 1, "elementosRequeridos": 6, "computador": 1 },
+    { "nombre": "Prod", "tipo": "PRODUCTOR", "memoria": 10, "prioridad": 2, "deadline": 500, "buffer": 1, "ciclosPorElemento": 1, "elementosRequeridos": 6, "computador": 1 },
+    { "nombre": "Cons", "tipo": "CONSUMIDOR", "memoria": 10, "prioridad": 1, "deadline": 500, "buffer": 1, "ciclosPorElemento": 1, "elementosRequeridos": 6, "computador": 2 }
+  ]
+}

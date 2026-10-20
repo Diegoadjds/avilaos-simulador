@@ -215,6 +215,7 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
     /** Termina un proceso (normal o por deadline), libera su memoria y revisa la cola de nuevos. */
     private void terminar(PCB p, boolean porDeadline) {
         EstadoProceso previo = p.getEstado();
+        boolean esperabaEnCola = false; // true: seguía en la cola de un semáforo (no se le había concedido)
         switch (previo) {
             case NUEVO -> nuevos.eliminar(p);
             case LISTO -> listos.eliminar(p);
@@ -224,12 +225,17 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
                     return; // lo despertó un semSignal justo ahora; se reintenta el próximo ciclo
                 }
                 if (p.getRecursoBloqueo() != null) {
-                    p.getRecursoBloqueo().cancelarEspera(p);
+                    esperabaEnCola = p.getRecursoBloqueo().cancelarEspera(p);
                 }
             }
             default -> {
                 return;
             }
+        }
+        if (porDeadline) {
+            // Si murió con un semáforo tomado (p. ej. dentro de la región crítica), lo devuelve
+            // para que el buffer no quede bloqueado para los demás procesos.
+            p.getComportamiento().liberarRecursos(p, esperabaEnCola, this);
         }
         if (previo != EstadoProceso.NUEVO) {
             ram.liberar(p.getMemoria());

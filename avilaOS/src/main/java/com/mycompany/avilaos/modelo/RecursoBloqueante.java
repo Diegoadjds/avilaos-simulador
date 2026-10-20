@@ -9,6 +9,11 @@ public interface RecursoBloqueante {
 
     String getNombre();
 
-    /** Quita al proceso de la cola de espera del recurso. */
-    void cancelarEspera(PCB pcb);
+    /**
+     * Quita al proceso de la cola de espera del recurso.
+     *
+     * @return true si el proceso seguía en la cola (nunca llegó a obtener el recurso);
+     *         false si ya lo habían despertado, es decir, si el recurso ya se le concedió.
+     */
+    boolean cancelarEspera(PCB pcb);
 }

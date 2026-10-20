@@ -33,6 +33,37 @@ public class ComportamientoConsumidor implements ComportamientoProceso {
         return remoto ? Paso.ACCESO_REMOTO : Paso.WAIT_LLENOS;
     }
 
+    /**
+     * Deadline vencido a mitad del ciclo: devuelve lo que el consumidor tenía tomado.
+     * "paso" es la PRÓXIMA instrucción, así que indica cuántos semWait ya se hicieron.
+     * Si todavía no extrajo, el elemento que había reservado (llenos) queda disponible para otro.
+     */
+    @Override
+    public void liberarRecursos(PCB pcb, boolean esperabaEnCola, ContextoEjecucion ctx) {
+        switch (paso) {
+            case WAIT_MUTEX -> {          // ya hizo semWait(llenos)
+                if (!esperabaEnCola) {
+                    ComportamientoProductor.soltar(buffer.getLlenos(), pcb, ctx, buffer);
+                }
+            }
+            case EXTRAER -> {             // ya hizo semWait(mutex), y antes semWait(llenos)
+                if (!esperabaEnCola) {
+                    ComportamientoProductor.soltar(buffer.getMutex(), pcb, ctx, buffer);
+                }
+                ComportamientoProductor.soltar(buffer.getLlenos(), pcb, ctx, buffer);
+            }
+            case SIGNAL_MUTEX -> {        // ya sacó el elemento: se completa el ciclo
+                ComportamientoProductor.soltar(buffer.getMutex(), pcb, ctx, buffer);
+                ComportamientoProductor.soltar(buffer.getVacios(), pcb, ctx, buffer);
+            }
+            case SIGNAL_VACIOS -> ComportamientoProductor.soltar(buffer.getVacios(), pcb, ctx, buffer);
+            default -> {
+                // ACCESO_REMOTO, WAIT_LLENOS y CONSUMIR: todavía no había tomado nada
+            }
+        }
+        paso = inicioDeCiclo();
+    }
+
     @Override
     public ResultadoInstruccion ejecutarInstruccion(PCB pcb, ContextoEjecucion ctx) {
         switch (paso) {
