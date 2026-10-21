@@ -22,6 +22,7 @@ public class VentanaPrincipal extends JFrame {
             }
         });
         setSize(1400, 860);
+        setMinimumSize(new java.awt.Dimension(1100, 700));
         setLocationRelativeTo(null);
         panel.iniciarRefresco();
     }
