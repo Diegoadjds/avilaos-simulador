@@ -135,16 +135,24 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
         if (!bloqueados.eliminar(p)) {
             return; // ya fue terminado (por ejemplo, por deadline)
         }
-        long bloqueo = cicloActual - p.getCicloInicioBloqueo();
-        p.sumarTiempoBloqueado(bloqueo);
-        if (p.getMotivoBloqueo().esSemaforo()) {
-            metricas.registrarBloqueoSemaforo(bloqueo);
-        }
+        registrarFinBloqueo(p);
         registrar(p + " sale de bloqueado (" + p.getMotivoBloqueo() + ") y pasa a listos");
         p.setMotivoBloqueo(MotivoBloqueo.NINGUNO);
         p.setRecursoBloqueo(null);
         p.setEstado(EstadoProceso.LISTO);
         planificador.agregarListo(p);
+    }
+
+    /**
+     * Suma, al proceso y a las métricas del computador, los ciclos que estuvo bloqueado
+     * hasta el ciclo actual. Debe llamarse antes de borrar el motivo del bloqueo.
+     */
+    private void registrarFinBloqueo(PCB p) {
+        long bloqueo = cicloActual - p.getCicloInicioBloqueo();
+        p.sumarTiempoBloqueado(bloqueo);
+        if (p.getMotivoBloqueo().esSemaforo()) {
+            metricas.registrarBloqueoSemaforo(bloqueo);
+        }
     }
 
     /** Planificación a largo plazo: Nuevo -> Listo solo si hay memoria suficiente. */
@@ -224,6 +232,8 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
                 if (!bloqueados.eliminar(p)) {
                     return; // lo despertó un semSignal justo ahora; se reintenta el próximo ciclo
                 }
+                // Murió bloqueado: también cuenta el tiempo que esperó (antes se perdía).
+                registrarFinBloqueo(p);
                 if (p.getRecursoBloqueo() != null) {
                     esperabaEnCola = p.getRecursoBloqueo().cancelarEspera(p);
                 }
