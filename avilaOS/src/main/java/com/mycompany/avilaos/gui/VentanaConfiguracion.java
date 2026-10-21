@@ -43,7 +43,7 @@ public class VentanaConfiguracion extends JFrame {
     private final JComboBox<PoliticaPlanificacion>[] cmbPolitica = new JComboBox[MAX_COMPUTADORES];
     private final JPanel filas = new JPanel(new GridLayout(0, 3, 8, 4));
     private final JLabel lblCarga = new JLabel();
-    private final JButton btnQuitarCarga = new JButton("Quitar carga");
+    private final JButton btnQuitarCarga = new BotonModerno("Quitar carga");
 
     /** Buffers y procesos iniciales leídos de un archivo (null si no se cargó ninguno). */
     private Escenario cargaInicial;
@@ -53,11 +53,11 @@ public class VentanaConfiguracion extends JFrame {
         super("ÁvilaOS – Configuración de la simulación");
 
         JPanel archivo = new JPanel(new GridLayout(2, 1));
-        archivo.setBorder(BorderFactory.createTitledBorder("Escenario (archivo JSON)"));
-        JButton btnCargar = new JButton("Cargar escenario…");
+        archivo.setBorder(Tema.borde("Escenario (archivo JSON)"));
+        JButton btnCargar = new BotonModerno("Cargar escenario…");
         btnCargar.setToolTipText("Lee parámetros, buffers y procesos iniciales desde un archivo JSON");
         btnCargar.addActionListener(e -> cargarEscenario());
-        JButton btnGuardar = new JButton("Guardar escenario…");
+        JButton btnGuardar = new BotonModerno("Guardar escenario…");
         btnGuardar.setToolTipText("Guarda los parámetros de esta ventana (y la carga inicial, si hay) en un archivo JSON");
         btnGuardar.addActionListener(e -> guardarEscenario());
         btnQuitarCarga.addActionListener(e -> {
@@ -76,14 +76,14 @@ public class VentanaConfiguracion extends JFrame {
         actualizarEtiquetaCarga();
 
         JPanel globales = new JPanel(new GridBagLayout());
-        globales.setBorder(BorderFactory.createTitledBorder("Parámetros generales"));
+        globales.setBorder(Tema.borde("Parámetros generales"));
         int y = 0;
         fila(globales, y++, "Cantidad de computadores (2 a " + MAX_COMPUTADORES + "):", spComputadores);
         fila(globales, y++, "Duración de un ciclo (ms):", txtCiclo);
         fila(globales, y++, "Latencia de red (ciclos):", txtLatencia);
         fila(globales, y++, "Quantum de Round Robin (ciclos):", txtQuantum);
 
-        filas.setBorder(BorderFactory.createTitledBorder("Computadores"));
+        filas.setBorder(Tema.borde("Computadores"));
         filas.add(new JLabel("Computador"));
         filas.add(new JLabel("RAM"));
         filas.add(new JLabel("Política inicial"));
@@ -91,6 +91,7 @@ public class VentanaConfiguracion extends JFrame {
             lblComputador[i] = new JLabel("Computador " + (i + 1));
             txtRam[i] = new JTextField("100", 8);
             cmbPolitica[i] = new JComboBox<>(PoliticaPlanificacion.values());
+            ComboModerno.aplicar(cmbPolitica[i]);
             filas.add(lblComputador[i]);
             filas.add(txtRam[i]);
             filas.add(cmbPolitica[i]);
@@ -98,7 +99,7 @@ public class VentanaConfiguracion extends JFrame {
         spComputadores.addChangeListener(e -> mostrarFilas());
         mostrarFilas();
 
-        JButton btnIniciar = new JButton("Abrir simulador");
+        JButton btnIniciar = new BotonModerno("Abrir simulador", BotonModerno.Tipo.PRIMARIO, Iconos.de(Iconos.Forma.PLAY));
         btnIniciar.addActionListener(e -> abrirSimulador());
         JPanel sur = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         sur.add(btnIniciar);

@@ -41,6 +41,12 @@ public class DialogoProceso extends JDialog {
     private final JTextField txtElementos = new JTextField("10", 8);
     private final JLabel lblEstado = new JLabel(" ");
 
+    {
+        ComboModerno.aplicar(cmbTipo);
+        ComboModerno.aplicar(cmbComputador);
+        ComboModerno.aplicar(cmbBuffer);
+    }
+
     public DialogoProceso(Window padre, ClusterAvilaOS cluster) {
         super(padre, "Nuevo proceso", ModalityType.APPLICATION_MODAL);
         this.cluster = cluster;
@@ -72,9 +78,9 @@ public class DialogoProceso extends JDialog {
         cmbTipo.addActionListener(e -> actualizarCampos());
         actualizarCampos();
 
-        JButton btnCrear = new JButton("Crear");
+        JButton btnCrear = new BotonModerno("Crear", BotonModerno.Tipo.PRIMARIO, Iconos.de(Iconos.Forma.MAS));
         btnCrear.addActionListener(e -> crear());
-        JButton btnCerrar = new JButton("Cerrar");
+        JButton btnCerrar = new BotonModerno("Cerrar");
         btnCerrar.addActionListener(e -> dispose());
         JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         botones.add(lblEstado);
