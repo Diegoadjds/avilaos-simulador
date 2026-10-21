@@ -23,24 +23,32 @@ public class PanelMetricas extends JPanel {
     private final GraficoUtilizacion grafico;
 
     public PanelMetricas(ClusterAvilaOS cluster) {
-        super(new BorderLayout(6, 6));
+        super(new BorderLayout(0, 10));
+        setBackground(Tema.FONDO);
+        setBorder(Tema.relleno(12, 0, 0, 0));
         this.cluster = cluster;
         this.modelo = new Modelo(cluster.getNumComputadores() + 1);
         this.grafico = new GraficoUtilizacion(cluster.getComputadores());
 
         JTable tabla = new JTable(modelo);
-        tabla.setRowHeight(22);
-        tabla.setFillsViewportHeight(true);
-        tabla.getColumnModel().getColumn(0).setPreferredWidth(110);
-        tabla.getColumnModel().getColumn(6).setPreferredWidth(220);
+        Tema.estilizarTabla(tabla);
+        tabla.setRowHeight(26);
+        int[] anchos = {110, 90, 170, 170, 160, 110, 240, 90, 80};
+        for (int i = 0; i < anchos.length; i++) {
+            tabla.getColumnModel().getColumn(i).setPreferredWidth(anchos[i]);
+        }
         JScrollPane sp = new JScrollPane(tabla);
         sp.setColumnHeaderView(tabla.getTableHeader());
-        sp.setBorder(BorderFactory.createTitledBorder("Métricas de rendimiento"));
-        sp.setPreferredSize(new Dimension(600, 40 + 24 * (cluster.getNumComputadores() + 2)));
+        Tema.estilizarScroll(sp);
+        sp.setBorder(BorderFactory.createCompoundBorder(Tema.borde("Métricas de rendimiento"),
+                BorderFactory.createLineBorder(Tema.BORDE)));
+        sp.setPreferredSize(new Dimension(600, 52 + 28 * (cluster.getNumComputadores() + 2)));
         add(sp, BorderLayout.NORTH);
 
         JPanel centro = new JPanel(new BorderLayout());
-        centro.setBorder(BorderFactory.createTitledBorder("Utilización del procesador"));
+        centro.setBorder(Tema.borde("Utilización del procesador"));
+        centro.setOpaque(false);
+        grafico.setBorder(BorderFactory.createEmptyBorder(14, 6, 6, 6));
         centro.add(grafico, BorderLayout.CENTER);
         add(centro, BorderLayout.CENTER);
     }

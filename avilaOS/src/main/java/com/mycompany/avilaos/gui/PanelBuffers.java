@@ -23,16 +23,19 @@ public class PanelBuffers extends JPanel {
     public PanelBuffers(ClusterAvilaOS cluster) {
         super(new BorderLayout());
         this.cluster = cluster;
-        setBorder(BorderFactory.createTitledBorder("Buffers compartidos"));
+        setBorder(BorderFactory.createCompoundBorder(Tema.relleno(0, 0, 0, 6), Tema.borde("Buffers compartidos")));
+        setOpaque(false);
         JTable tabla = new JTable(modelo);
-        tabla.setRowHeight(20);
-        tabla.setFillsViewportHeight(true);
-        int[] anchos = {45, 95, 70, 45, 50, 50, 40, 40, 260};
+        Tema.estilizarTabla(tabla);
+        tabla.setRowHeight(22);
+        int[] anchos = {52, 100, 82, 52, 52, 52, 48, 48, 160};
         for (int i = 0; i < anchos.length; i++) {
             tabla.getColumnModel().getColumn(i).setPreferredWidth(anchos[i]);
         }
         JScrollPane sp = new JScrollPane(tabla);
         sp.setColumnHeaderView(tabla.getTableHeader());
+        Tema.estilizarScroll(sp);
+        sp.setBorder(BorderFactory.createEmptyBorder(14, 8, 8, 8));
         add(sp, BorderLayout.CENTER);
     }
 

@@ -5,7 +5,6 @@ import com.mycompany.avilaos.so.RegistroEventos;
 import java.awt.BorderLayout;
 import java.awt.Font;
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
@@ -24,18 +23,28 @@ public class PanelLog extends JPanel implements ObservadorEventos {
 
     public PanelLog(RegistroEventos registro) {
         super(new BorderLayout());
-        setBorder(BorderFactory.createTitledBorder("Log de eventos"));
+        setBorder(BorderFactory.createCompoundBorder(Tema.relleno(0, 6, 0, 0), Tema.borde("Log de eventos")));
+        setOpaque(false);
         area.setEditable(false);
         area.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12));
+        area.setBackground(Tema.CAMPO);
+        area.setForeground(Tema.TEXTO);
+        area.setCaretColor(Tema.CAMPO);
+        area.setBorder(Tema.relleno(4, 6, 4, 6));
         for (String linea : registro.getLineas()) {
             area.append(linea + "\n");
         }
-        JButton btnLimpiar = new JButton("Limpiar");
+        BotonModerno btnLimpiar = new BotonModerno("Limpiar");
         btnLimpiar.addActionListener(e -> area.setText(""));
         JPanel sur = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.LEFT, 8, 2));
+        Tema.transparente(sur, chkAutoScroll);
+        chkAutoScroll.setForeground(Tema.TEXTO_SUAVE);
         sur.add(chkAutoScroll);
         sur.add(btnLimpiar);
-        add(new JScrollPane(area), BorderLayout.CENTER);
+        JScrollPane sp = new JScrollPane(area);
+        Tema.estilizarScroll(sp);
+        sp.setBorder(BorderFactory.createEmptyBorder(14, 8, 0, 8));
+        add(sp, BorderLayout.CENTER);
         add(sur, BorderLayout.SOUTH);
         registro.agregarObservador(this);
     }

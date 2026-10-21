@@ -24,6 +24,10 @@ public class DialogoBuffer extends JDialog {
     private final JComboBox<String> cmbComputador = new JComboBox<>();
     private final JLabel lblEstado = new JLabel(" ");
 
+    {
+        ComboModerno.aplicar(cmbComputador);
+    }
+
     public DialogoBuffer(Window padre, ClusterAvilaOS cluster) {
         super(padre, "Nuevo buffer", ModalityType.APPLICATION_MODAL);
         this.cluster = cluster;
@@ -51,9 +55,9 @@ public class DialogoBuffer extends JDialog {
         g.gridwidth = 2;
         form.add(new JLabel("<html>El buffer ocupa tanta RAM como su capacidad<br>en el computador anfitrión.</html>"), g);
 
-        JButton btnCrear = new JButton("Crear");
+        JButton btnCrear = new BotonModerno("Crear", BotonModerno.Tipo.PRIMARIO, Iconos.de(Iconos.Forma.MAS));
         btnCrear.addActionListener(e -> crear());
-        JButton btnCerrar = new JButton("Cerrar");
+        JButton btnCerrar = new BotonModerno("Cerrar");
         btnCerrar.addActionListener(e -> dispose());
         JPanel botones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         botones.add(lblEstado);
