@@ -7,14 +7,11 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import javax.swing.JPanel;
-import javax.swing.UIManager;
 
 /** Gráfica con la utilización del procesador de cada computador respecto al tiempo (dibujada con Java2D). */
 public class GraficoUtilizacion extends JPanel {
 
-    private static final Color[] COLORES = {
-        new Color(31, 119, 180), new Color(214, 39, 40), new Color(44, 160, 44),
-        new Color(255, 127, 14), new Color(148, 103, 189), new Color(23, 190, 207)};
+    private static final Color[] COLORES = Tema.SERIES;
     private static final int CICLOS_POR_PUNTO = 10;
 
     private final Computador[] computadores;
@@ -22,6 +19,7 @@ public class GraficoUtilizacion extends JPanel {
     public GraficoUtilizacion(Computador[] computadores) {
         this.computadores = computadores;
         setPreferredSize(new java.awt.Dimension(600, 260));
+        setBackground(Tema.CAMPO);
     }
 
     @Override
@@ -29,6 +27,8 @@ public class GraficoUtilizacion extends JPanel {
         super.paintComponent(g0);
         Graphics2D g = (Graphics2D) g0.create();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g.setFont(Tema.fuente(java.awt.Font.PLAIN, 12f));
         int w = getWidth();
         int h = getHeight();
         int mi = 50;
@@ -41,13 +41,10 @@ public class GraficoUtilizacion extends JPanel {
             g.dispose();
             return;
         }
-        Color fg = UIManager.getColor("Label.foreground");
-        if (fg == null) {
-            fg = Color.BLACK;
-        }
-        Color rejilla = new Color(fg.getRed(), fg.getGreen(), fg.getBlue(), 40);
+        Color fg = Tema.TEXTO_SUAVE;
+        Color rejilla = Tema.BORDE;
 
-        g.setColor(fg);
+        g.setColor(Tema.TEXTO);
         g.drawString("Utilización del procesador vs. tiempo (cada punto = promedio de " + CICLOS_POR_PUNTO + " ciclos)", mi, 18);
         for (int i = 0; i <= 4; i++) {
             int y = ms + ph - ph * i / 4;
@@ -86,11 +83,13 @@ public class GraficoUtilizacion extends JPanel {
                 px = x;
                 py = y;
             }
-            int lx = mi + pw - 130;
-            int ly = ms + 8 + i * 16;
-            g.fillRect(lx, ly - 4, 16, 4);
+            // leyenda en la fila del título, de derecha a izquierda, para no tapar las líneas
+            int lx = w - md - (computadores.length - i) * 125;
+            int ly = 16;
+            g.setStroke(new BasicStroke(1f));
+            g.fillRoundRect(lx, ly - 6, 16, 6, 4, 4);
             g.setColor(fg);
-            g.drawString("Computador " + computadores[i].getId(), lx + 22, ly + 2);
+            g.drawString("Computador " + computadores[i].getId(), lx + 22, ly);
         }
         g.dispose();
     }
