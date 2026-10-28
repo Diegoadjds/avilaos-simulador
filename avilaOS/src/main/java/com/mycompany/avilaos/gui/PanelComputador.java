@@ -20,8 +20,6 @@ import javax.swing.BoxLayout;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
 
 /**
  * Vista 2 de UN computador: CPU con el PCB completo del proceso en ejecución, modo del procesador,
@@ -50,14 +48,7 @@ public class PanelComputador extends JPanel {
     private final CampoPCB cInstrucciones = new CampoPCB("Instrucciones");
     private final CampoPCB cElementos = new CampoPCB("Elementos");
 
-    private final ModeloTablaPCB mNuevos = new ModeloTablaPCB(ModeloTablaPCB.NORMAL);
-    private final ModeloTablaPCB mListos = new ModeloTablaPCB(ModeloTablaPCB.NORMAL);
-    private final ModeloTablaPCB mBloqueados = new ModeloTablaPCB(ModeloTablaPCB.BLOQUEADOS);
-    private final ModeloTablaPCB mTerminados = new ModeloTablaPCB(ModeloTablaPCB.TERMINADOS);
-    private final JScrollPane spNuevos;
-    private final JScrollPane spListos;
-    private final JScrollPane spBloqueados;
-    private final JScrollPane spTerminados;
+    private final ColasRejilla colas = new ColasRejilla();
 
     public PanelComputador(Computador computador) {
         super(new BorderLayout(0, 8));
@@ -122,18 +113,6 @@ public class PanelComputador extends JPanel {
         cpu.add(cabCpu, BorderLayout.NORTH);
         cpu.add(pcb, BorderLayout.CENTER);
 
-        // --- Colas ---
-        spNuevos = crearTabla("Nuevos", mNuevos);
-        spListos = crearTabla("Listos", mListos);
-        spBloqueados = crearTabla("Bloqueados", mBloqueados);
-        spTerminados = crearTabla("Terminados", mTerminados);
-        JPanel colas = new JPanel(new GridLayout(4, 1, 8, 8));
-        Tema.transparente(colas);
-        colas.add(spNuevos);
-        colas.add(spListos);
-        colas.add(spBloqueados);
-        colas.add(spTerminados);
-
         JPanel norte = new JPanel();
         norte.setLayout(new BoxLayout(norte, BoxLayout.Y_AXIS));
         Tema.transparente(norte);
@@ -144,28 +123,8 @@ public class PanelComputador extends JPanel {
         norte.add(cpu);
         add(norte, BorderLayout.NORTH);
         add(colas, BorderLayout.CENTER);
-        setPreferredSize(new Dimension(640, 700));
+        setPreferredSize(new Dimension(640, 480));
         refrescar();
-    }
-
-    private static JScrollPane crearTabla(String titulo, ModeloTablaPCB modelo) {
-        JTable tabla = new JTable(modelo);
-        Tema.estilizarTabla(tabla);
-        tabla.setRowHeight(22);
-        int[] anchos = {28, 56, 82, 30, 32, 56, 34, 170};
-        for (int i = 0; i < tabla.getColumnCount(); i++) {
-            tabla.getColumnModel().getColumn(i).setPreferredWidth(anchos[i]);
-        }
-        JScrollPane sp = new JScrollPane(tabla);
-        sp.setColumnHeaderView(tabla.getTableHeader());
-        Tema.estilizarScroll(sp);
-        sp.setBorder(BorderFactory.createCompoundBorder(Tema.borde(titulo), BorderFactory.createLineBorder(Tema.BORDE)));
-        return sp;
-    }
-
-    private static void titulo(JScrollPane sp, String texto) {
-        ((BordeSeccion) ((javax.swing.border.CompoundBorder) sp.getBorder()).getOutsideBorder()).setTitulo(texto);
-        sp.repaint();
     }
 
     /** Se llama desde el Timer de la ventana (hilo de Swing). */
@@ -218,14 +177,7 @@ public class PanelComputador extends JPanel {
         PCB[] listos = k.getListos();
         PCB[] bloqueados = k.getBloqueados();
         PCB[] terminados = k.getTerminados();
-        mNuevos.setDatos(nuevos);
-        mListos.setDatos(listos);
-        mBloqueados.setDatos(bloqueados);
-        mTerminados.setDatos(terminados);
-        titulo(spNuevos, "Nuevos (" + nuevos.length + ")");
-        titulo(spListos, "Listos (" + listos.length + ")");
-        titulo(spBloqueados, "Bloqueados (" + bloqueados.length + ")");
-        titulo(spTerminados, "Terminados (" + terminados.length + ")");
+        colas.actualizar(nuevos, listos, bloqueados, terminados);
     }
 
     /** Un dato del PCB: título pequeño y valor debajo. */
