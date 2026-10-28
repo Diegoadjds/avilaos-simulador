@@ -74,10 +74,10 @@ public class RenderizadorTabla extends DefaultTableCellRenderer {
                 if (texto.startsWith("I/O")) {
                     return Tema.MORADO;
                 }
-                if (texto.startsWith("Productor")) {
+                if (texto.startsWith("Prod")) {
                     return Tema.VERDE;
                 }
-                if (texto.startsWith("Consumidor")) {
+                if (texto.startsWith("Cons")) {
                     return Tema.CIAN;
                 }
                 return Tema.TEXTO;
