@@ -35,6 +35,7 @@ public class PanelPrincipal extends JPanel {
     private static final int REFRESCO_MS = 150;
 
     private final ClusterAvilaOS cluster;
+    private final Escenario escenarioInicial;
     private final PanelComputador[] paneles;
     private final PanelBuffers panelBuffers;
     private final PanelMetricas panelMetricas;
@@ -49,9 +50,10 @@ public class PanelPrincipal extends JPanel {
             Iconos.de(Iconos.Forma.PASO));
     private final Timer temporizador;
 
-    public PanelPrincipal(ClusterAvilaOS cluster) {
+    public PanelPrincipal(ClusterAvilaOS cluster, Escenario escenarioInicial) {
         super(new BorderLayout(0, 10));
         this.cluster = cluster;
+        this.escenarioInicial = escenarioInicial;
         setBackground(Tema.FONDO);
         setBorder(Tema.relleno(10, 12, 10, 12));
 
@@ -110,6 +112,10 @@ public class PanelPrincipal extends JPanel {
                 Iconos.de(Iconos.Forma.REINICIAR));
         btnNueva.setToolTipText("Termina esta simulación y vuelve a la pantalla de configuración inicial");
         btnNueva.addActionListener(e -> nuevaSimulacion());
+        BotonModerno btnReiniciar = new BotonModerno("Reiniciar", BotonModerno.Tipo.NORMAL,
+                Iconos.de(Iconos.Forma.REINICIAR));
+        btnReiniciar.setToolTipText("Repite esta misma simulación desde el ciclo 0, con el escenario con el que se inició");
+        btnReiniciar.addActionListener(e -> reiniciarSimulacion());
         JPanel fila2 = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         Tema.transparente(fila2);
         fila2.add(btnProceso);
@@ -117,6 +123,7 @@ public class PanelPrincipal extends JPanel {
         fila2.add(btnGuardar);
         JPanel filaNueva = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 4));
         Tema.transparente(filaNueva);
+        filaNueva.add(btnReiniciar);
         filaNueva.add(btnNueva);
         JPanel fila2Completa = new JPanel(new BorderLayout());
         Tema.transparente(fila2Completa);
@@ -213,6 +220,40 @@ public class PanelPrincipal extends JPanel {
             ventana.dispose();
         }
         new VentanaConfiguracion().setVisible(true);
+    }
+
+    /**
+     * Repite la misma simulación (previa confirmación): detiene el reloj, recrea el clúster con el escenario
+     * inicial (computadores, RAM, políticas, quantum, duración del ciclo, latencia, buffers y procesos) y
+     * lo deja en el ciclo 0, en pausa. No hace falta volver a la pantalla de configuración.
+     */
+    private void reiniciarSimulacion() {
+        Window ventana = SwingUtilities.getWindowAncestor(this);
+        if (!(ventana instanceof VentanaPrincipal) || escenarioInicial == null) {
+            return;
+        }
+        int r = JOptionPane.showConfirmDialog(this,
+                "Se va a repetir la simulación desde el ciclo 0 con el escenario inicial.\n"
+                + "Se pierde el progreso actual y los procesos o buffers creados después de iniciar.\n"
+                + "¿Continuar?",
+                "Reiniciar simulación", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        if (r != JOptionPane.YES_OPTION) {
+            return;
+        }
+        if (!cluster.getReloj().isCorriendo()) {
+            cluster.iniciarPausado(); // así existen los hilos de los componentes y detener() los apaga
+        }
+        detener();
+        GeneradorId.reiniciar(); // los procesos iniciales vuelven a ser P1, P2, ...
+        ClusterAvilaOS nuevo;
+        try {
+            nuevo = escenarioInicial.crearCluster();
+        } catch (IllegalArgumentException ex) {
+            Entradas.error(this, ex.getMessage());
+            return;
+        }
+        nuevo.iniciarPausado(); // ciclo 0, en pausa
+        ((VentanaPrincipal) ventana).mostrar(nuevo);
     }
 
     /** Guarda en un archivo JSON la configuración vigente y todos los buffers y procesos creados. */
