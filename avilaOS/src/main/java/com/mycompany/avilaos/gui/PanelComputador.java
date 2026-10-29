@@ -47,6 +47,7 @@ public class PanelComputador extends JPanel {
     private final CampoPCB cMar = new CampoPCB("MAR");
     private final CampoPCB cInstrucciones = new CampoPCB("Instrucciones");
     private final CampoPCB cElementos = new CampoPCB("Elementos");
+    private final CampoPCB cInstruccion = new CampoPCB("Instrucción ejecutada");
 
     private final ColasRejilla colas = new ColasRejilla();
 
@@ -111,7 +112,11 @@ public class PanelComputador extends JPanel {
         pcb.add(cInstrucciones);
         pcb.add(cElementos);
         cpu.add(cabCpu, BorderLayout.NORTH);
-        cpu.add(pcb, BorderLayout.CENTER);
+        JPanel centroCpu = new JPanel(new BorderLayout(0, 6));
+        Tema.transparente(centroCpu);
+        centroCpu.add(pcb, BorderLayout.CENTER);
+        centroCpu.add(cInstruccion, BorderLayout.SOUTH);
+        cpu.add(centroCpu, BorderLayout.CENTER);
 
         JPanel norte = new JPanel();
         norte.setLayout(new BoxLayout(norte, BoxLayout.Y_AXIS));
@@ -123,7 +128,7 @@ public class PanelComputador extends JPanel {
         norte.add(cpu);
         add(norte, BorderLayout.NORTH);
         add(colas, BorderLayout.CENTER);
-        setPreferredSize(new Dimension(640, 480));
+        setPreferredSize(new Dimension(640, 520));
         refrescar();
     }
 
@@ -144,6 +149,7 @@ public class PanelComputador extends JPanel {
             cMar.poner(SIN_DATO, Tema.TEXTO_SUAVE);
             cInstrucciones.poner(SIN_DATO, Tema.TEXTO_SUAVE);
             cElementos.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cInstruccion.poner(SIN_DATO, Tema.TEXTO_SUAVE);
         } else {
             EstadoProceso estado = p.getEstado();
             cProceso.poner(p.getEtiqueta() + " · " + p.getNombre(), Tema.TEXTO);
@@ -161,6 +167,8 @@ public class PanelComputador extends JPanel {
             boolean pc = p.getTipo() == TipoProceso.PRODUCTOR || p.getTipo() == TipoProceso.CONSUMIDOR;
             cElementos.poner(pc ? p.getElementosProcesados() + " / " + p.getElementosRequeridos() : SIN_DATO,
                     pc ? Tema.TEXTO : Tema.TEXTO_SUAVE);
+            cInstruccion.poner(p.getComportamiento().ultimaInstruccion(p),
+                    k.getModoCpu() == ModoCPU.USUARIO ? Tema.VERDE : Tema.NARANJA);
         }
         ModoCPU modo = k.getModoCpu();
         if (modo == ModoCPU.USUARIO) {

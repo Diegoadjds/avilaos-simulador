@@ -73,7 +73,7 @@ public class ModeloTablaPCB extends AbstractTableModel {
             case 6: return p.getTiempoRestante();
             default:
                 if (modo == BLOQUEADOS) {
-                    return compacto ? motivoCorto(p) : p.getMotivoBloqueo().toString();
+                    return detalleBloqueo(p, compacto);
                 }
                 return p.isTerminoPorDeadline() ? (compacto ? "Dl. vencido" : "Deadline vencido") : "Completado";
         }
@@ -88,14 +88,28 @@ public class ModeloTablaPCB extends AbstractTableModel {
         }
     }
 
-    private static String motivoCorto(PCB p) {
+    /**
+     * Dónde y por qué está bloqueado un proceso: el semWait del semáforo y el buffer en el que espera,
+     * o los ciclos que faltan para que termine una E/S o un acceso remoto.
+     */
+    static String detalleBloqueo(PCB p, boolean compacto) {
+        int faltan = p.getCiclosBloqueoRestantes();
+        String ciclos = faltan <= 0 ? (compacto ? "sale ya" : "sale en el próximo ciclo")
+                : faltan == 1 ? "falta 1" + (compacto ? "" : " ciclo")
+                : "faltan " + faltan + (compacto ? "" : " ciclos");
+        String buffer = "B" + p.getIdBuffer();
         switch (p.getMotivoBloqueo()) {
-            case ENTRADA_SALIDA: return "E/S";
-            case ACCESO_REMOTO: return "Red";
-            case SEMAFORO_MUTEX: return "Sem. mutex";
-            case SEMAFORO_VACIOS: return "Sem. vacíos";
-            case SEMAFORO_LLENOS: return "Sem. llenos";
+            case ENTRADA_SALIDA: return "E/S: " + ciclos;
+            case ACCESO_REMOTO: return (compacto ? "Red: " : "acceso remoto: ") + ciclos;
+            case SEMAFORO_MUTEX: return semaforo("mutex", buffer, compacto);
+            case SEMAFORO_VACIOS: return semaforo("vacíos", buffer, compacto);
+            case SEMAFORO_LLENOS: return semaforo("llenos", buffer, compacto);
             default: return "-";
         }
+    }
+
+    private static String semaforo(String nombre, String buffer, boolean compacto) {
+        return compacto ? "semWait(" + nombre + ") " + buffer
+                : "bloqueado en semWait(" + nombre + ") de " + buffer;
     }
 }
