@@ -21,12 +21,18 @@ public class ComportamientoConsumidor implements ComportamientoProceso {
     private final ProveedorLatencia red;
     private Paso paso;
     private int trabajo = 0;
+    private volatile String ultima = "—"; // última instrucción ejecutada (la lee la interfaz)
 
     public ComportamientoConsumidor(BufferAcotado buffer, boolean remoto, ProveedorLatencia red) {
         this.buffer = buffer;
         this.remoto = remoto;
         this.red = red;
         this.paso = inicioDeCiclo();
+    }
+
+    @Override
+    public String ultimaInstruccion(PCB pcb) {
+        return ultima;
     }
 
     private Paso inicioDeCiclo() {
@@ -69,12 +75,15 @@ public class ComportamientoConsumidor implements ComportamientoProceso {
         switch (paso) {
             case ACCESO_REMOTO:
                 paso = Paso.WAIT_LLENOS;
+                ultima = "acceso remoto";
                 return ComportamientoProductor.accesoRemoto(pcb, ctx, buffer, red);
             case WAIT_LLENOS:
                 paso = Paso.WAIT_MUTEX;
+                ultima = "semWait(llenos)";
                 return ComportamientoProductor.esperar(buffer.getLlenos(), pcb, ctx, buffer);
             case WAIT_MUTEX:
                 paso = Paso.EXTRAER;
+                ultima = "semWait(mutex)";
                 return ComportamientoProductor.esperar(buffer.getMutex(), pcb, ctx, buffer);
             case EXTRAER:
                 buffer.extraer();
@@ -82,17 +91,21 @@ public class ComportamientoConsumidor implements ComportamientoProceso {
                 ctx.registrarEvento("Proceso " + pcb + " consume un elemento de " + buffer.getNombre()
                         + " (" + buffer.getElementos() + "/" + buffer.getCapacidad() + ")");
                 paso = Paso.SIGNAL_MUTEX;
+                ultima = "extraer";
                 return ResultadoInstruccion.continuar(ModoCPU.SISTEMA_OPERATIVO);
             case SIGNAL_MUTEX:
                 buffer.getMutex().semSignal();
                 paso = Paso.SIGNAL_VACIOS;
+                ultima = "semSignal(mutex)";
                 return ResultadoInstruccion.continuar(ModoCPU.SISTEMA_OPERATIVO);
             case SIGNAL_VACIOS:
                 buffer.getVacios().semSignal();
                 paso = Paso.CONSUMIR;
+                ultima = "semSignal(vacíos)";
                 return ResultadoInstruccion.continuar(ModoCPU.SISTEMA_OPERATIVO);
             default: // CONSUMIR
                 trabajo++;
+                ultima = "consumir (" + trabajo + "/" + pcb.getCiclosPorElemento() + ")";
                 if (trabajo >= pcb.getCiclosPorElemento()) {
                     trabajo = 0;
                     paso = inicioDeCiclo();

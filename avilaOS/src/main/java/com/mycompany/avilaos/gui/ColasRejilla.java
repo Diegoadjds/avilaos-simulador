@@ -7,6 +7,7 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.MouseEvent;
 import javax.swing.BorderFactory;
@@ -31,29 +32,30 @@ public class ColasRejilla extends JPanel {
     private final Cuadro terminados = new Cuadro("Terminados", ModeloTablaPCB.TERMINADOS);
 
     public ColasRejilla() {
-        super(new GridBagLayout());
+        super(new GridLayout(2, 1, 0, 6));
         Tema.transparente(this);
+        // Fila de arriba: Nuevos | Listos (mismo ancho)
+        add(fila(nuevos, 1, listos, 1));
+        // Fila de abajo: Bloqueados | Terminados. Bloqueados lleva el texto de dónde espera, así que es más ancha.
+        add(fila(bloqueados, 370, terminados, 310));
+    }
+
+    /** Dos colas lado a lado; los pesos reparten el ancho entre ellas. */
+    private static JPanel fila(Cuadro izquierda, double pesoIzq, Cuadro derecha, double pesoDer) {
+        JPanel fila = new JPanel(new GridBagLayout());
+        Tema.transparente(fila);
         GridBagConstraints c = new GridBagConstraints();
         c.fill = GridBagConstraints.BOTH;
         c.weighty = 1;
-        // Fila de arriba: Nuevos | Listos
-        c.gridy = 0;
         c.gridx = 0;
-        c.weightx = 0.5;
-        c.insets = new Insets(0, 0, 6, 6);
-        add(nuevos, c);
-        c.gridx = 1;
-        c.insets = new Insets(0, 0, 6, 0);
-        add(listos, c);
-        // Fila de abajo: Bloqueados | Terminados (llevan una columna más, por eso un poco más anchas)
-        c.gridy = 1;
-        c.gridx = 0;
-        c.weightx = 0.5;
+        c.weightx = pesoIzq;
         c.insets = new Insets(0, 0, 0, 6);
-        add(bloqueados, c);
+        fila.add(izquierda, c);
         c.gridx = 1;
+        c.weightx = pesoDer;
         c.insets = new Insets(0, 0, 0, 0);
-        add(terminados, c);
+        fila.add(derecha, c);
+        return fila;
     }
 
     /** Se llama desde el Timer de la ventana (hilo de Swing). */
@@ -100,7 +102,7 @@ public class ColasRejilla extends JPanel {
 
             int[] anchos = modo == ModeloTablaPCB.NORMAL
                     ? new int[]{24, 56, 32, 30, 30, 40, 34}
-                    : new int[]{24, 52, 30, 28, 28, 38, 32, 72};
+                    : new int[]{22, 46, 28, 28, 28, 38, 30, modo == ModeloTablaPCB.BLOQUEADOS ? 112 : 66};
             for (int i = 0; i < tabla.getColumnCount(); i++) {
                 tabla.getColumnModel().getColumn(i).setPreferredWidth(anchos[i]);
             }
@@ -131,9 +133,10 @@ public class ColasRejilla extends JPanel {
         s.append("Prioridad: ").append(p.getPrioridad()).append(" · Memoria: ").append(p.getMemoria()).append("<br>");
         s.append("Deadline restante: ").append(p.getDeadlineRestante()).append(" de ").append(p.getDeadlineInicial()).append("<br>");
         s.append("Instrucciones restantes: ").append(p.getTiempoRestante()).append(" de ").append(p.getInstruccionesTotales()).append("<br>");
-        s.append("PC: ").append(p.getPc()).append(" · MAR: ").append(p.getMar());
+        s.append("PC: ").append(p.getPc()).append(" · MAR: ").append(p.getMar()).append("<br>");
+        s.append("Última instrucción: ").append(p.getComportamiento().ultimaInstruccion(p));
         if (p.getEstado() == EstadoProceso.BLOQUEADO) {
-            s.append("<br>Bloqueado: ").append(p.getMotivoBloqueo());
+            s.append("<br>").append(ModeloTablaPCB.detalleBloqueo(p, false));
         }
         if (p.getEstado() == EstadoProceso.TERMINADO) {
             s.append("<br>").append(p.isTerminoPorDeadline() ? "Terminó por deadline vencido" : "Completado");
