@@ -23,6 +23,7 @@ public class ComportamientoProductor implements ComportamientoProceso {
     private final ProveedorLatencia red;
     private Paso paso = Paso.PRODUCIR;
     private int trabajo = 0;
+    private volatile String ultima = "—"; // última instrucción ejecutada (la lee la interfaz)
 
     public ComportamientoProductor(BufferAcotado buffer, boolean remoto, ProveedorLatencia red) {
         this.buffer = buffer;
@@ -35,6 +36,7 @@ public class ComportamientoProductor implements ComportamientoProceso {
         switch (paso) {
             case PRODUCIR:
                 trabajo++;
+                ultima = "producir (" + trabajo + "/" + pcb.getCiclosPorElemento() + ")";
                 if (trabajo >= pcb.getCiclosPorElemento()) {
                     trabajo = 0;
                     paso = remoto ? Paso.ACCESO_REMOTO : Paso.WAIT_VACIOS;
@@ -42,12 +44,15 @@ public class ComportamientoProductor implements ComportamientoProceso {
                 return ResultadoInstruccion.continuar(ModoCPU.USUARIO);
             case ACCESO_REMOTO:
                 paso = Paso.WAIT_VACIOS;
+                ultima = "acceso remoto";
                 return accesoRemoto(pcb, ctx, buffer, red);
             case WAIT_VACIOS:
                 paso = Paso.WAIT_MUTEX;
+                ultima = "semWait(vacíos)";
                 return esperar(buffer.getVacios(), pcb, ctx, buffer);
             case WAIT_MUTEX:
                 paso = Paso.ANYADIR;
+                ultima = "semWait(mutex)";
                 return esperar(buffer.getMutex(), pcb, ctx, buffer);
             case ANYADIR:
                 buffer.anyadir();
@@ -55,19 +60,27 @@ public class ComportamientoProductor implements ComportamientoProceso {
                 ctx.registrarEvento("Proceso " + pcb + " produce un elemento en " + buffer.getNombre()
                         + " (" + buffer.getElementos() + "/" + buffer.getCapacidad() + ")");
                 paso = Paso.SIGNAL_MUTEX;
+                ultima = "anyadir";
                 return ResultadoInstruccion.continuar(ModoCPU.SISTEMA_OPERATIVO);
             case SIGNAL_MUTEX:
                 buffer.getMutex().semSignal();
                 paso = Paso.SIGNAL_LLENOS;
+                ultima = "semSignal(mutex)";
                 return ResultadoInstruccion.continuar(ModoCPU.SISTEMA_OPERATIVO);
             default: // SIGNAL_LLENOS
                 buffer.getLlenos().semSignal();
                 paso = Paso.PRODUCIR;
+                ultima = "semSignal(llenos)";
                 if (pcb.getElementosProcesados() >= pcb.getElementosRequeridos()) {
                     return ResultadoInstruccion.terminar(ModoCPU.SISTEMA_OPERATIVO);
                 }
                 return ResultadoInstruccion.continuar(ModoCPU.SISTEMA_OPERATIVO);
         }
+    }
+
+    @Override
+    public String ultimaInstruccion(PCB pcb) {
+        return ultima;
     }
 
     /**
