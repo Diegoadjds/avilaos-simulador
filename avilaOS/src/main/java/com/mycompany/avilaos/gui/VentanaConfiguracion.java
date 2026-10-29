@@ -169,8 +169,9 @@ public class VentanaConfiguracion extends JFrame {
 
     private void abrirSimulador() {
         try {
-            ClusterAvilaOS cluster = construirEscenario().crearCluster();
-            new VentanaPrincipal(cluster).setVisible(true);
+            Escenario escenario = construirEscenario();
+            ClusterAvilaOS cluster = escenario.crearCluster();
+            new VentanaPrincipal(cluster, escenario).setVisible(true);
             dispose();
         } catch (IllegalArgumentException ex) {
             Entradas.error(this, ex.getMessage());
