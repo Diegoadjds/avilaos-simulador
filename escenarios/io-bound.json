@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "duracionCicloMs": 600,
+  "latenciaRed": 2,
+  "quantum": 3,
+  "computadores": [
+    { "ram": 100, "politica": "FCFS" },
+    { "ram": 100, "politica": "FCFS" }
+  ],
+  "procesos": [
+    { "nombre": "IO-A", "tipo": "IO_BOUND", "instrucciones": 10, "memoria": 10, "prioridad": 1, "deadline": 100, "ciclosEntreEs": 3, "duracionEs": 4, "computador": 1 },
+    { "nombre": "CPU-B", "tipo": "CPU_BOUND", "instrucciones": 10, "memoria": 10, "prioridad": 2, "deadline": 100, "computador": 1 }
+  ]
+}
