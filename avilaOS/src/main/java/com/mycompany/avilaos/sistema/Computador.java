@@ -4,14 +4,14 @@ import com.mycompany.avilaos.hardware.CPU;
 import com.mycompany.avilaos.hardware.ComponenteRelojable;
 import com.mycompany.avilaos.hardware.MemoriaPrincipal;
 import com.mycompany.avilaos.modelo.PCB;
+import com.mycompany.avilaos.so.GestorES;
 import com.mycompany.avilaos.so.Kernel;
 import com.mycompany.avilaos.so.RegistroEventos;
 import com.mycompany.avilaos.so.planificacion.PoliticaPlanificacion;
 
 /**
- * Un computador completo: ensambla hardware (CPU, RAM) + su propio kernel.
- * Todos los computadores del cluster son instancias de ESTA clase; agregar uno
- * más es solo crear otra instancia.
+ * El computador completo: ensambla hardware (CPU, RAM) + su kernel. En el Proyecto 2 hay una sola instancia;
+ * su disco es otro componente del reloj que comparte con el kernel a través del gestor de E/S.
  */
 public class Computador implements ComponenteRelojable {
 
@@ -21,11 +21,11 @@ public class Computador implements ComponenteRelojable {
     private final Kernel kernel;
 
     public Computador(int id, int tamanoRam, PoliticaPlanificacion politica, int quantum,
-            RegistroEventos registro) {
+            GestorES gestorES, RegistroEventos registro) {
         this.id = id;
         this.ram = new MemoriaPrincipal(tamanoRam);
         this.cpu = new CPU();
-        this.kernel = new Kernel(id, ram, cpu, registro, politica, quantum);
+        this.kernel = new Kernel(id, ram, cpu, registro, gestorES, politica, quantum);
     }
 
     /** Un ciclo de este computador: el SO decide, el CPU ejecuta una instrucción, el SO procesa el resultado. */
