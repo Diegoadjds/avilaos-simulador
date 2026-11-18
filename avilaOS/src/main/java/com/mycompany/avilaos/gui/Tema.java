@@ -181,8 +181,6 @@ public final class Tema {
                 return AZUL;
             case IO_BOUND:
                 return MORADO;
-            case PRODUCTOR:
-                return VERDE;
             default:
                 return CIAN;
         }
@@ -197,11 +195,21 @@ public final class Tema {
                 return AZUL;
             case BLOQUEADO:
                 return NARANJA;
+            case LISTO_SUSPENDIDO:
+                return CIAN;
+            case BLOQUEADO_SUSPENDIDO:
+                return MORADO;
             case TERMINADO:
                 return GRIS;
             default:
                 return TEXTO;
         }
+    }
+
+    /** Color de un archivo o proceso suspendido en el mapa del disco (el mismo dueño siempre tiene el mismo color). */
+    public static Color colorBloque(int colorId) {
+        float tono = (float) ((colorId * 0.61803398875) % 1.0);
+        return Color.getHSBColor(tono, 0.55f, 0.88f);
     }
 
     /** Mezcla dos colores (t = 0 devuelve a, t = 1 devuelve b). */
