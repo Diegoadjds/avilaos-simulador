@@ -35,7 +35,7 @@ public class RenderizadorTabla extends DefaultTableCellRenderer {
         }
         setBackground(fila % 2 == 0 ? Tema.CAMPO : new Color(0x142034));
         setForeground(colorDe(nombre, valor, texto));
-        if ("ID".equals(nombre) || "Buffer".equals(nombre) || columna == 0 && !centrada(nombre)) {
+        if ("ID".equals(nombre) || columna == 0 && !centrada(nombre)) {
             setFont(Tema.fuente(Font.BOLD, 12f));
         }
         if ("Resultado".equals(nombre) && texto.contains("vencido")) {
@@ -53,9 +53,13 @@ public class RenderizadorTabla extends DefaultTableCellRenderer {
             case "Tipo":
             case "Motivo":
             case "Resultado":
-            case "Buffer":
-            case "Anfitrión":
-            case "Procesos bloqueados":
+            case "Operación":
+            case "Proceso":
+            case "Ruta":
+            case "Dueño":
+            case "Creado por":
+            case "Permiso":
+            case "Política":
                 return false;
             default:
                 return true;
@@ -74,17 +78,14 @@ public class RenderizadorTabla extends DefaultTableCellRenderer {
                 if (texto.startsWith("I/O")) {
                     return Tema.MORADO;
                 }
-                if (texto.startsWith("Prod")) {
-                    return Tema.VERDE;
-                }
-                if (texto.startsWith("Cons")) {
+                if (texto.startsWith("E/S")) {
                     return Tema.CIAN;
                 }
                 return Tema.TEXTO;
             case "Motivo":
                 return Tema.NARANJA;
             case "Resultado":
-                return texto.contains("vencido") ? Tema.ROJO : Tema.VERDE;
+                return texto.contains("vencido") || texto.startsWith("Error") ? Tema.ROJO : Tema.VERDE;
             case "Deadline":
             case "Deadl.":
                 return valor instanceof Number n && n.intValue() <= DEADLINE_CRITICO ? Tema.ROJO : Tema.TEXTO;

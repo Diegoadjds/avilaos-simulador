@@ -23,6 +23,30 @@ public enum PoliticaPlanificacion {
         };
     }
 
+    /** Acepta el nombre del enum o variantes comunes (RR, PRIORITY...); null si no es una política válida. */
+    public static PoliticaPlanificacion desdeTexto(String texto) {
+        if (texto == null) {
+            return null;
+        }
+        String t = texto.trim().toUpperCase().replace('-', '_').replace(' ', '_');
+        switch (t) {
+            case "RR":
+                return ROUND_ROBIN;
+            case "PRIORIDAD":
+            case "PRIORITY":
+            case "PRIORITIES":
+                return PRIORIDADES;
+            default:
+                break;
+        }
+        for (PoliticaPlanificacion p : values()) {
+            if (p.name().equals(t)) {
+                return p;
+            }
+        }
+        return null;
+    }
+
     @Override
     public String toString() {
         return etiqueta;

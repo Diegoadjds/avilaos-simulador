@@ -19,8 +19,7 @@ public class MetricasComputador {
     private volatile long vencidos;
     private volatile long sumaRespuesta;
     private volatile long conRespuesta;
-    private volatile long sumaBloqueoSemaforo;
-    private volatile long bloqueosSemaforo;
+    private volatile long fallidosES;
 
     private int ocupadosVentana;
     private int ciclosVentana;
@@ -43,6 +42,8 @@ public class MetricasComputador {
     public void registrarTerminacion(PCB pcb) {
         if (pcb.isTerminoPorDeadline()) {
             vencidos++;
+        } else if (pcb.getErrorES() != null) {
+            fallidosES++; // la operación de archivo fue rechazada: no cuenta como completado
         } else {
             completados++;
         }
@@ -51,11 +52,6 @@ public class MetricasComputador {
     public void registrarRespuesta(long ciclos) {
         sumaRespuesta += ciclos;
         conRespuesta++;
-    }
-
-    public void registrarBloqueoSemaforo(long ciclos) {
-        sumaBloqueoSemaforo += ciclos;
-        bloqueosSemaforo++;
     }
 
     /** Fracción de ciclos con el CPU ocupado (0..1). */
@@ -79,16 +75,11 @@ public class MetricasComputador {
         return total == 0 ? 1.0 : (double) completados / total;
     }
 
-    public double getTiempoPromedioBloqueoSemaforo() {
-        return bloqueosSemaforo == 0 ? 0 : (double) sumaBloqueoSemaforo / bloqueosSemaforo;
-    }
-
     public long getCiclosTotales() { return ciclosTotales; }
     public long getCiclosOcupada() { return ciclosOcupada; }
     public long getSumaRespuesta() { return sumaRespuesta; }
     public long getConRespuesta() { return conRespuesta; }
-    public long getSumaBloqueoSemaforo() { return sumaBloqueoSemaforo; }
-    public long getBloqueosSemaforo() { return bloqueosSemaforo; }
+    public long getFallidosES() { return fallidosES; }
     public long getCompletados() { return completados; }
     public long getVencidos() { return vencidos; }
 
