@@ -1,39 +1,26 @@
 package com.mycompany.avilaos.modelo;
 
 /**
- * Subestados del estado BLOQUEADO. Un proceso bloqueado siempre tiene un motivo,
- * que es lo que la GUI muestra en la cola de bloqueados.
+ * Subestados de BLOQUEADO (y de Bloqueado/Suspendido). Un proceso bloqueado siempre tiene un
+ * motivo, que es lo que la interfaz muestra en la cola.
  *
- * Justificación (para la defensa): cada motivo tiene un mecanismo de salida distinto.
- * - ENTRADA_SALIDA y ACCESO_REMOTO salen solos tras N ciclos (los cuenta el kernel).
- * - Los SEMAFORO_* salen cuando otro proceso hace semSignal sobre ese semáforo.
- * Se distinguen los tres semáforos del productor-consumidor porque el estudio de
- * "tiempo bloqueado en semáforos" y la GUI necesitan saber en cuál espera.
+ * Cada motivo sale de forma distinta: ENTRADA_SALIDA sale solo tras N ciclos (los cuenta el
+ * kernel); ESPERA_DISCO sale cuando el disco termina la solicitud del proceso.
  */
 public enum MotivoBloqueo {
-    NINGUNO("-", false),
-    ENTRADA_SALIDA("Esperando E/S", false),
-    ACCESO_REMOTO("Acceso remoto a buffer (red)", false),
-    SEMAFORO_MUTEX("Semáforo mutex (región crítica)", true),
-    SEMAFORO_VACIOS("Semáforo vacíos (buffer lleno)", true),
-    SEMAFORO_LLENOS("Semáforo llenos (buffer vacío)", true);
+    NINGUNO("-"),
+    ENTRADA_SALIDA("Esperando E/S"),
+    ESPERA_DISCO("Esperando al disco");
 
     private final String etiqueta;
-    private final boolean semaforo;
 
-    MotivoBloqueo(String etiqueta, boolean semaforo) {
+    MotivoBloqueo(String etiqueta) {
         this.etiqueta = etiqueta;
-        this.semaforo = semaforo;
-    }
-
-    /** true si el bloqueo termina por un semSignal de otro proceso. */
-    public boolean esSemaforo() {
-        return semaforo;
     }
 
     /** true si el bloqueo termina solo, tras una cantidad fija de ciclos. */
     public boolean esPorTiempo() {
-        return this == ENTRADA_SALIDA || this == ACCESO_REMOTO;
+        return this == ENTRADA_SALIDA;
     }
 
     @Override
