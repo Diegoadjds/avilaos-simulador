@@ -1,0 +1,244 @@
+package com.mycompany.avilaos.gui;
+
+import com.mycompany.avilaos.hardware.MemoriaPrincipal;
+import com.mycompany.avilaos.modelo.ErrorOperacion;
+import com.mycompany.avilaos.modelo.EstadoProceso;
+import com.mycompany.avilaos.modelo.ModoCPU;
+import com.mycompany.avilaos.modelo.PCB;
+import com.mycompany.avilaos.sistema.Computador;
+import com.mycompany.avilaos.sistema.SistemaAvilaOS;
+import com.mycompany.avilaos.so.Kernel;
+import com.mycompany.avilaos.so.planificacion.PoliticaPlanificacion;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridLayout;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JComboBox;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+
+/**
+ * Vista 2 de UN computador: CPU con el PCB completo del proceso en ejecución, modo del procesador,
+ * colas, memoria y política de planificación. Solo observa: la lógica vive en el kernel.
+ */
+public class PanelComputador extends JPanel {
+
+    private static final String SIN_DATO = "—";
+
+    private final SistemaAvilaOS sistema;
+    private final Computador computador;
+    private boolean sincronizando;
+    private final JComboBox<PoliticaPlanificacion> cmbPolitica = new JComboBox<>(PoliticaPlanificacion.values());
+    private final BarraUso barRam = new BarraUso();
+    private final Insignia insigniaModo = new Insignia();
+
+    // Campos del PCB del proceso que está en la CPU
+    private final CampoPCB cProceso = new CampoPCB("Proceso");
+    private final CampoPCB cTipo = new CampoPCB("Tipo");
+    private final CampoPCB cEstado = new CampoPCB("Estado");
+    private final CampoPCB cComputador = new CampoPCB("Usuario");
+    private final CampoPCB cPrioridad = new CampoPCB("Prioridad");
+    private final CampoPCB cMemoria = new CampoPCB("Memoria");
+    private final CampoPCB cDeadline = new CampoPCB("Deadline");
+    private final CampoPCB cRestante = new CampoPCB("Restante");
+    private final CampoPCB cPc = new CampoPCB("PC");
+    private final CampoPCB cMar = new CampoPCB("MAR");
+    private final CampoPCB cInstrucciones = new CampoPCB("Instrucciones");
+    private final CampoPCB cOperacion = new CampoPCB("Operación");
+    private final CampoPCB cInstruccion = new CampoPCB("Instrucción ejecutada");
+
+    private final ColasRejilla colas = new ColasRejilla();
+
+    /** Habilita o no el selector de política (en modo usuario solo el administrador cambia las políticas). */
+    public void setPuedeCambiarPolitica(boolean puede) {
+        cmbPolitica.setEnabled(puede);
+        cmbPolitica.setToolTipText(puede ? null : "Modo usuario: solo el administrador cambia las políticas");
+    }
+
+    public PanelComputador(SistemaAvilaOS sistema) {
+        super(new BorderLayout(0, 8));
+        this.sistema = sistema;
+        this.computador = sistema.getComputador();
+        setBorder(Tema.borde(""));
+
+        // --- Cabecera: nombre, política y RAM ---
+        JLabel titulo = new JLabel("Computador");
+        titulo.setFont(Tema.fuente(Font.BOLD, 18f));
+        titulo.setForeground(Tema.TEXTO);
+        ComboModerno.aplicar(cmbPolitica);
+        cmbPolitica.setSelectedItem(computador.getKernel().getPolitica());
+        cmbPolitica.addActionListener(e -> {
+            PoliticaPlanificacion elegida = (PoliticaPlanificacion) cmbPolitica.getSelectedItem();
+            if (!sincronizando && elegida != null && elegida != computador.getKernel().getPolitica()) {
+                try {
+                    sistema.cambiarPoliticaCpu(elegida);
+                } catch (ErrorOperacion ex) {
+                    Entradas.error(this, ex.getMessage());
+                    sincronizar();
+                }
+            }
+        });
+        JLabel lblPolitica = new JLabel("Política");
+        lblPolitica.setForeground(Tema.TEXTO_SUAVE);
+        JPanel politica = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        Tema.transparente(politica);
+        politica.add(lblPolitica);
+        politica.add(cmbPolitica);
+        JPanel fila1 = new JPanel(new BorderLayout());
+        Tema.transparente(fila1);
+        fila1.add(titulo, BorderLayout.WEST);
+        fila1.add(politica, BorderLayout.EAST);
+
+        JLabel lblRam = new JLabel("RAM");
+        lblRam.setForeground(Tema.TEXTO_SUAVE);
+        lblRam.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 10));
+        JPanel fila2 = new JPanel(new BorderLayout());
+        Tema.transparente(fila2);
+        fila2.add(lblRam, BorderLayout.WEST);
+        fila2.add(barRam, BorderLayout.CENTER);
+
+        // --- CPU: modo del procesador y PCB completo del proceso en ejecución ---
+        Tarjeta cpu = new Tarjeta(new BorderLayout(0, 6), Tema.TARJETA, Tema.BORDE);
+        cpu.setBorder(BorderFactory.createEmptyBorder(8, 12, 10, 12));
+        JLabel lblCpu = new JLabel("CPU");
+        lblCpu.setFont(Tema.fuente(Font.BOLD, 12f));
+        lblCpu.setForeground(Tema.TEXTO_SUAVE);
+        JPanel cabCpu = new JPanel(new BorderLayout());
+        Tema.transparente(cabCpu);
+        cabCpu.add(lblCpu, BorderLayout.WEST);
+        cabCpu.add(insigniaModo, BorderLayout.EAST);
+        JPanel pcb = new JPanel(new GridLayout(2, 6, 10, 6));
+        Tema.transparente(pcb);
+        pcb.add(cProceso);
+        pcb.add(cTipo);
+        pcb.add(cEstado);
+        pcb.add(cComputador);
+        pcb.add(cPrioridad);
+        pcb.add(cMemoria);
+        pcb.add(cDeadline);
+        pcb.add(cRestante);
+        pcb.add(cPc);
+        pcb.add(cMar);
+        pcb.add(cInstrucciones);
+        pcb.add(cOperacion);
+        cpu.add(cabCpu, BorderLayout.NORTH);
+        JPanel centroCpu = new JPanel(new BorderLayout(0, 6));
+        Tema.transparente(centroCpu);
+        centroCpu.add(pcb, BorderLayout.CENTER);
+        centroCpu.add(cInstruccion, BorderLayout.SOUTH);
+        cpu.add(centroCpu, BorderLayout.CENTER);
+
+        JPanel norte = new JPanel();
+        norte.setLayout(new BoxLayout(norte, BoxLayout.Y_AXIS));
+        Tema.transparente(norte);
+        norte.add(fila1);
+        norte.add(Box.createVerticalStrut(6));
+        norte.add(fila2);
+        norte.add(Box.createVerticalStrut(10));
+        norte.add(cpu);
+        add(norte, BorderLayout.NORTH);
+        add(colas, BorderLayout.CENTER);
+        setPreferredSize(new Dimension(640, 520));
+        refrescar();
+    }
+
+    /** Deja el selector mostrando la política que realmente usa el kernel. */
+    private void sincronizar() {
+        sincronizando = true;
+        cmbPolitica.setSelectedItem(computador.getKernel().getPolitica());
+        sincronizando = false;
+    }
+
+    /** Se llama desde el Timer de la ventana (hilo de Swing). */
+    public void refrescar() {
+        Kernel k = computador.getKernel();
+        if (cmbPolitica.getSelectedItem() != k.getPolitica()) {
+            sincronizar();
+        }
+        PCB p = k.getProcesoEnCpu();
+        if (p == null) {
+            cProceso.poner("CPU ociosa", Tema.TEXTO_SUAVE);
+            cTipo.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cEstado.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cComputador.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cPrioridad.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cMemoria.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cDeadline.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cRestante.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cPc.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cMar.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cInstrucciones.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cOperacion.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+            cInstruccion.poner(SIN_DATO, Tema.TEXTO_SUAVE);
+        } else {
+            EstadoProceso estado = p.getEstado();
+            cProceso.poner(p.getEtiqueta() + " · " + p.getNombre(), Tema.TEXTO);
+            cTipo.poner(p.getTipo().toString(), Tema.colorTipo(p.getTipo()));
+            cEstado.poner(estado.toString(), Tema.colorEstado(estado));
+            cComputador.poner(p.getUsuario(), Tema.TEXTO);
+            cPrioridad.poner(String.valueOf(p.getPrioridad()), Tema.TEXTO);
+            cMemoria.poner(String.valueOf(p.getMemoria()), Tema.TEXTO);
+            cDeadline.poner(String.valueOf(p.getDeadlineRestante()),
+                    p.getDeadlineRestante() <= 5 ? Tema.ROJO : Tema.TEXTO);
+            cRestante.poner(String.valueOf(p.getTiempoRestante()), Tema.TEXTO);
+            cPc.poner(String.valueOf(p.getPc()), Tema.TEXTO);
+            cMar.poner(String.valueOf(p.getMar()), Tema.TEXTO);
+            cInstrucciones.poner(String.valueOf(p.getInstruccionesTotales()), Tema.TEXTO);
+            boolean archivo = p.getOperacion() != null;
+            cOperacion.poner(archivo ? p.getOperacion() + " " + nombreCorto(p.getRutaArchivo()) : SIN_DATO,
+                    archivo ? Tema.CIAN : Tema.TEXTO_SUAVE);
+            cInstruccion.poner(p.getComportamiento().ultimaInstruccion(p),
+                    k.getModoCpu() == ModoCPU.USUARIO ? Tema.VERDE : Tema.NARANJA);
+        }
+        ModoCPU modo = k.getModoCpu();
+        if (modo == ModoCPU.USUARIO) {
+            insigniaModo.poner("Modo: programa de usuario", Tema.VERDE);
+        } else {
+            insigniaModo.poner("Modo: sistema operativo", Tema.NARANJA);
+        }
+
+        MemoriaPrincipal ram = k.getRam();
+        barRam.poner(ram.getUsada(), ram.getTotal(),
+                ram.getUsada() + " usada · " + ram.getLibre() + " libre (total " + ram.getTotal() + ")");
+
+        PCB[] nuevos = k.getNuevos();
+        PCB[] listos = k.getListos();
+        PCB[] bloqueados = k.getBloqueados();
+        PCB[] terminados = k.getTerminados();
+        colas.actualizar(nuevos, listos, bloqueados, k.getListosSuspendidos(), k.getBloqueadosSuspendidos(), terminados);
+    }
+
+    private static String nombreCorto(String ruta) {
+        return ruta.substring(ruta.lastIndexOf('/') + 1);
+    }
+
+    /** Un dato del PCB: título pequeño y valor debajo. */
+    private static class CampoPCB extends JPanel {
+
+        private final JLabel valor = new JLabel(SIN_DATO);
+
+        CampoPCB(String nombre) {
+            super(new BorderLayout(0, 1));
+            Tema.transparente(this);
+            JLabel titulo = new JLabel(nombre);
+            titulo.setFont(Tema.fuente(Font.PLAIN, 11f));
+            titulo.setForeground(Tema.TEXTO_SUAVE);
+            valor.setFont(Tema.fuente(Font.BOLD, 13f));
+            valor.setForeground(Tema.TEXTO);
+            add(titulo, BorderLayout.NORTH);
+            add(valor, BorderLayout.CENTER);
+        }
+
+        void poner(String texto, Color color) {
+            if (!texto.equals(valor.getText())) {
+                valor.setText(texto);
+            }
+            valor.setForeground(color);
+        }
+    }
+}
