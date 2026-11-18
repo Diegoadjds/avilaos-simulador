@@ -5,51 +5,58 @@ import com.mycompany.avilaos.hardware.CPU;
 import com.mycompany.avilaos.hardware.MemoriaPrincipal;
 import com.mycompany.avilaos.modelo.AccionInstruccion;
 import com.mycompany.avilaos.modelo.ContextoEjecucion;
+import com.mycompany.avilaos.modelo.ErrorOperacion;
 import com.mycompany.avilaos.modelo.EstadoProceso;
-import com.mycompany.avilaos.modelo.GestorDesbloqueo;
 import com.mycompany.avilaos.modelo.ModoCPU;
 import com.mycompany.avilaos.modelo.MotivoBloqueo;
 import com.mycompany.avilaos.modelo.PCB;
 import com.mycompany.avilaos.modelo.ResultadoInstruccion;
+import com.mycompany.avilaos.modelo.SolicitudDisco;
 import com.mycompany.avilaos.so.planificacion.PoliticaPlanificacion;
 
 /**
- * Núcleo del sistema operativo de UN computador. Es el que DECIDE: admite procesos
- * según la memoria, elige quién ejecuta, bloquea, desbloquea y termina.
+ * Núcleo del sistema operativo del computador. Es el que DECIDE: admite procesos según la memoria, elige
+ * quién ejecuta, bloquea, desbloquea y termina. Maneja el modelo de siete estados: además de las colas del
+ * Proyecto 1 tiene las de procesos suspendidos (Listo/Suspendido y Bloqueado/Suspendido), que administra
+ * junto con el planificador a mediano plazo.
  *
  * Cada ciclo el Computador llama, en este orden:
  *   faseInicio()  ->  cpu.alCiclo()  ->  faseFin()
  */
-public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
+public class Kernel implements ContextoEjecucion {
 
     private final int idComputador;
     private final MemoriaPrincipal ram;
     private final CPU cpu;
     private final RegistroEventos registro;
+    private final GestorES gestorES;
     private final MetricasComputador metricas = new MetricasComputador();
+    private final MedianoPlazo medianoPlazo;
 
-    // Colas compartidas entre hilos (la GUI las lee, otros computadores pueden despertar procesos)
+    // Colas compartidas entre hilos (la GUI las lee)
     private final ListaSegura<PCB> nuevos = new ListaSegura<>();
     private final ListaSegura<PCB> listos = new ListaSegura<>();
     private final ListaSegura<PCB> bloqueados = new ListaSegura<>();
+    private final ListaSegura<PCB> listosSuspendidos = new ListaSegura<>();
+    private final ListaSegura<PCB> bloqueadosSuspendidos = new ListaSegura<>();
     private final ListaSegura<PCB> terminados = new ListaSegura<>();
-    /** Desbloqueos pedidos por semáforos; se aplican al inicio del siguiente ciclo. */
-    private final ListaSegura<PCB> pendientesDesbloqueo = new ListaSegura<>();
 
     private final Planificador planificador;
     private volatile PoliticaPlanificacion tipoPolitica;
     private volatile int quantum;
     private volatile long cicloActual;
 
-    public Kernel(int idComputador, MemoriaPrincipal ram, CPU cpu, RegistroEventos registro,
+    public Kernel(int idComputador, MemoriaPrincipal ram, CPU cpu, RegistroEventos registro, GestorES gestorES,
             PoliticaPlanificacion politicaInicial, int quantum) {
         this.idComputador = idComputador;
         this.ram = ram;
         this.cpu = cpu;
         this.registro = registro;
+        this.gestorES = gestorES;
         this.tipoPolitica = politicaInicial;
         this.quantum = quantum;
         this.planificador = new Planificador(politicaInicial.crear(quantum), listos);
+        this.medianoPlazo = new MedianoPlazo(this, gestorES);
         this.cpu.setContexto(this);
     }
 
@@ -57,12 +64,14 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
     //  Ciclo de reloj
     // =====================================================================
 
-    /** Antes de que el CPU ejecute: desbloqueos, admisión de nuevos y planificación. */
+    /** Antes de que el CPU ejecute: respuestas del disco, mediano plazo, admisión de nuevos y planificación. */
     public void faseInicio(long ciclo) {
         cicloActual = ciclo;
-        procesarDesbloqueos();
+        procesarSolicitudesCompletadas();
         avanzarBloqueosPorTiempo();
+        medianoPlazo.reactivar();
         admitirNuevos();
+        medianoPlazo.suspenderParaAdmitir();
         planificar();
     }
 
@@ -83,7 +92,7 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
     }
 
     // =====================================================================
-    //  Llegada de procesos (la llama la GUI / el cluster)
+    //  Llegada de procesos
     // =====================================================================
 
     /** Recibe un proceso nuevo. Devuelve false si nunca podría caber en la RAM. */
@@ -93,7 +102,6 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
                     + " y la RAM total es " + ram.getTotal());
             return false;
         }
-        pcb.asignarComputador(idComputador, this);
         pcb.setEstado(EstadoProceso.NUEVO);
         pcb.setCicloLlegada(cicloActual);
         nuevos.agregarAlFinal(pcb);
@@ -101,29 +109,101 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
         return true;
     }
 
-    /** Lo llaman los semáforos (vía PCB.solicitarDesbloqueo) desde cualquier computador. */
-    @Override
-    public void desbloquear(PCB pcb) {
-        pendientesDesbloqueo.agregarAlFinal(pcb);
+    // =====================================================================
+    //  Respuestas del disco
+    // =====================================================================
+
+    /** Atiende, en orden, las solicitudes que el disco terminó en ciclos anteriores. */
+    private void procesarSolicitudesCompletadas() {
+        for (SolicitudDisco s : gestorES.getPlanificadorDisco().sacarCompletadas(cicloActual)) {
+            if (s.isCancelada()) {
+                continue; // su proceso murió mientras el disco la atendía
+            }
+            PCB p = s.getProceso();
+            switch (s.getOperacion()) {
+                case SUSPENDER -> completarSuspension(p);
+                case REACTIVAR -> completarReactivacion(p);
+                default -> completarArchivo(p, s);
+            }
+        }
+    }
+
+    /** El disco terminó una operación de archivo: se hace efectiva y el proceso despierta (Listo o Listo/Suspendido). */
+    private void completarArchivo(PCB p, SolicitudDisco s) {
+        gestorES.confirmarArchivo(s);
+        p.setSolicitudActual(null);
+        registrar("el disco terminó la operación " + s.getOperacion() + " de " + p);
+        if (p.getEstado() == EstadoProceso.BLOQUEADO) {
+            if (p.isSuspendiendo()) {
+                p.setEventoDuranteSuspension(true); // se está escribiendo en el swap: queda Listo/Suspendido al terminar
+            } else {
+                despertar(p);
+            }
+        } else if (p.getEstado() == EstadoProceso.BLOQUEADO_SUSPENDIDO) {
+            despertarSuspendido(p);
+        }
+    }
+
+    private void completarSuspension(PCB p) {
+        if (!bloqueados.eliminar(p)) {
+            return;
+        }
+        ram.liberar(p.getMemoria());
+        p.setSuspendiendo(false);
+        p.setSolicitudSwap(null);
+        p.sumarSuspension();
+        medianoPlazo.getMetricasDisco().registrarSuspension();
+        if (p.isEventoDuranteSuspension()) {
+            p.setEventoDuranteSuspension(false);
+            registrarFinBloqueo(p);
+            p.setMotivoBloqueo(MotivoBloqueo.NINGUNO);
+            p.setEstado(EstadoProceso.LISTO_SUSPENDIDO);
+            listosSuspendidos.agregarAlFinal(p);
+            registrar("suspende a " + p + " (swap en el bloque " + p.getPrimerBloqueSwap()
+                    + "): su evento ya ocurrió, queda Listo/Suspendido (RAM " + ram.getUsada() + "/" + ram.getTotal() + ")");
+        } else {
+            p.setEstado(EstadoProceso.BLOQUEADO_SUSPENDIDO);
+            bloqueadosSuspendidos.agregarAlFinal(p);
+            registrar("suspende a " + p + " (swap en el bloque " + p.getPrimerBloqueSwap()
+                    + "): queda Bloqueado/Suspendido (RAM " + ram.getUsada() + "/" + ram.getTotal() + ")");
+        }
+    }
+
+    private void completarReactivacion(PCB p) {
+        if (!listosSuspendidos.eliminar(p)) {
+            return;
+        }
+        p.setReactivando(false);
+        gestorES.liberarSwap(p);
+        medianoPlazo.getMetricasDisco().registrarReactivacion();
+        p.setEstado(EstadoProceso.LISTO);
+        planificador.agregarListo(p);
+        registrar("reactiva a " + p + ": vuelve a la RAM y pasa a Listo (RAM " + ram.getUsada() + "/" + ram.getTotal() + ")");
     }
 
     // =====================================================================
     //  Pasos internos
     // =====================================================================
 
-    private void procesarDesbloqueos() {
-        PCB p;
-        while ((p = pendientesDesbloqueo.extraerPrimero()) != null) {
-            despertar(p);
-        }
-    }
-
-    /** Cuenta los ciclos de los bloqueos por tiempo (E/S, red) y despierta a los que cumplieron. */
+    /** Cuenta los ciclos de los bloqueos por tiempo (E/S simulada) y despierta a los que cumplieron. */
     private void avanzarBloqueosPorTiempo() {
         for (PCB p : bloqueados.aArreglo(new PCB[0])) {
+            if (p.getMotivoBloqueo().esPorTiempo() && !p.isEventoDuranteSuspension()) {
+                if (p.getCiclosBloqueoRestantes() <= 0) {
+                    if (p.isSuspendiendo()) {
+                        p.setEventoDuranteSuspension(true);
+                    } else {
+                        despertar(p);
+                    }
+                } else {
+                    p.setCiclosBloqueoRestantes(p.getCiclosBloqueoRestantes() - 1);
+                }
+            }
+        }
+        for (PCB p : bloqueadosSuspendidos.aArreglo(new PCB[0])) {
             if (p.getMotivoBloqueo().esPorTiempo()) {
                 if (p.getCiclosBloqueoRestantes() <= 0) {
-                    despertar(p);
+                    despertarSuspendido(p);
                 } else {
                     p.setCiclosBloqueoRestantes(p.getCiclosBloqueoRestantes() - 1);
                 }
@@ -138,21 +218,25 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
         registrarFinBloqueo(p);
         registrar(p + " sale de bloqueado (" + p.getMotivoBloqueo() + ") y pasa a listos");
         p.setMotivoBloqueo(MotivoBloqueo.NINGUNO);
-        p.setRecursoBloqueo(null);
         p.setEstado(EstadoProceso.LISTO);
         planificador.agregarListo(p);
     }
 
-    /**
-     * Suma, al proceso y a las métricas del computador, los ciclos que estuvo bloqueado
-     * hasta el ciclo actual. Debe llamarse antes de borrar el motivo del bloqueo.
-     */
-    private void registrarFinBloqueo(PCB p) {
-        long bloqueo = cicloActual - p.getCicloInicioBloqueo();
-        p.sumarTiempoBloqueado(bloqueo);
-        if (p.getMotivoBloqueo().esSemaforo()) {
-            metricas.registrarBloqueoSemaforo(bloqueo);
+    /** Su evento ocurrió estando en el swap: pasa de Bloqueado/Suspendido a Listo/Suspendido. */
+    private void despertarSuspendido(PCB p) {
+        if (!bloqueadosSuspendidos.eliminar(p)) {
+            return;
         }
+        registrarFinBloqueo(p);
+        registrar(p + " termina su espera (" + p.getMotivoBloqueo() + ") estando suspendido: pasa a Listo/Suspendido");
+        p.setMotivoBloqueo(MotivoBloqueo.NINGUNO);
+        p.setEstado(EstadoProceso.LISTO_SUSPENDIDO);
+        listosSuspendidos.agregarAlFinal(p);
+    }
+
+    /** Suma, al proceso, los ciclos que estuvo bloqueado hasta el ciclo actual. Llamar antes de borrar el motivo. */
+    private void registrarFinBloqueo(PCB p) {
+        p.sumarTiempoBloqueado(cicloActual - p.getCicloInicioBloqueo());
     }
 
     /** Planificación a largo plazo: Nuevo -> Listo solo si hay memoria suficiente. */
@@ -194,64 +278,55 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
         cpu.descargar();
         p.setEstado(EstadoProceso.BLOQUEADO);
         p.setMotivoBloqueo(r.getMotivo());
-        p.setRecursoBloqueo(r.getRecurso());
         p.setCiclosBloqueoRestantes(r.getCiclosBloqueo());
         p.setCicloInicioBloqueo(cicloActual);
         bloqueados.agregarAlFinal(p);
         registrar("bloquea a " + p + ": " + r.getMotivo());
     }
 
-    /** Resta un ciclo al deadline de todos los procesos vivos y termina a los que llegan a 0. */
+    /** Resta un ciclo al deadline de todos los procesos vivos (también los suspendidos) y termina a los que llegan a 0. */
     private void avanzarDeadlines() {
-        PCB[] a = nuevos.aArreglo(new PCB[0]);
-        PCB[] b = listos.aArreglo(new PCB[0]);
-        PCB[] c = bloqueados.aArreglo(new PCB[0]);
-        PCB enCpu = cpu.getProcesoActual();
-        PCB[] todos = new PCB[a.length + b.length + c.length + 1];
-        int n = 0;
-        for (PCB p : a) { todos[n++] = p; }
-        for (PCB p : b) { todos[n++] = p; }
-        for (PCB p : c) { todos[n++] = p; }
-        if (enCpu != null) { todos[n++] = enCpu; }
-        for (int i = 0; i < n; i++) {
-            if (todos[i].decrementarDeadline() <= 0) {
-                terminar(todos[i], true);
+        PCB[] vivos = todosLosVivos();
+        for (PCB p : vivos) {
+            if (p.decrementarDeadline() <= 0) {
+                terminar(p, true);
             }
         }
     }
 
-    /** Termina un proceso (normal o por deadline), libera su memoria y revisa la cola de nuevos. */
+    /** Termina un proceso (normal o por deadline), libera su memoria y su swap y revisa la cola de nuevos. */
     private void terminar(PCB p, boolean porDeadline) {
         EstadoProceso previo = p.getEstado();
-        boolean esperabaEnCola = false; // true: seguía en la cola de un semáforo (no se le había concedido)
         switch (previo) {
             case NUEVO -> nuevos.eliminar(p);
             case LISTO -> listos.eliminar(p);
             case EJECUCION -> cpu.descargar();
             case BLOQUEADO -> {
                 if (!bloqueados.eliminar(p)) {
-                    return; // lo despertó un semSignal justo ahora; se reintenta el próximo ciclo
+                    return;
                 }
-                // Murió bloqueado: también cuenta el tiempo que esperó (antes se perdía).
                 registrarFinBloqueo(p);
-                if (p.getRecursoBloqueo() != null) {
-                    esperabaEnCola = p.getRecursoBloqueo().cancelarEspera(p);
-                }
+            }
+            case LISTO_SUSPENDIDO -> listosSuspendidos.eliminar(p);
+            case BLOQUEADO_SUSPENDIDO -> {
+                bloqueadosSuspendidos.eliminar(p);
+                registrarFinBloqueo(p);
             }
             default -> {
                 return;
             }
         }
-        if (porDeadline) {
-            // Si murió con un semáforo tomado (p. ej. dentro de la región crítica), lo devuelve
-            // para que el buffer no quede bloqueado para los demás procesos.
-            p.getComportamiento().liberarRecursos(p, esperabaEnCola, this);
-        }
-        if (previo != EstadoProceso.NUEVO) {
+        // Si tenía operaciones pendientes en el disco se cancelan y se deshace lo reservado (bloques, marcas, swap).
+        gestorES.abortarProceso(p);
+        boolean enRam = previo == EstadoProceso.LISTO || previo == EstadoProceso.EJECUCION
+                || previo == EstadoProceso.BLOQUEADO || p.isReactivando();
+        if (enRam) {
             ram.liberar(p.getMemoria());
         }
+        p.setSuspendiendo(false);
+        p.setReactivando(false);
+        p.setEventoDuranteSuspension(false);
         p.setMotivoBloqueo(MotivoBloqueo.NINGUNO);
-        p.setRecursoBloqueo(null);
         p.setEstado(EstadoProceso.TERMINADO);
         p.setCicloFin(cicloActual);
         p.setTerminoPorDeadline(porDeadline);
@@ -259,8 +334,39 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
         metricas.registrarTerminacion(p);
         registrar(porDeadline
                 ? "termina a " + p + " por DEADLINE vencido"
+                : p.getErrorES() != null ? "termina " + p + " con error de E/S: " + p.getErrorES()
                 : "termina " + p + " (completado)");
-        admitirNuevos(); // se liberó memoria: ¿cabe alguno de los nuevos?
+        // Se liberó memoria: si hay procesos esperando, se revisa su admisión en el próximo ciclo.
+        admitirNuevos();
+    }
+
+    // =====================================================================
+    //  Operaciones que usa el planificador a mediano plazo
+    // =====================================================================
+
+    /** Pide al disco que escriba al proceso bloqueado en el swap. Devuelve false si no hay espacio de swap. */
+    boolean iniciarSuspension(PCB victima, PCB paraAdmitir) {
+        SolicitudDisco s = gestorES.solicitarSuspension(victima, cicloActual);
+        if (s == null) {
+            return false;
+        }
+        victima.setSuspendiendo(true);
+        registrar("Se suspende al proceso " + victima.getEtiqueta() + " para admitir a " + paraAdmitir.getEtiqueta()
+                + " (prioridad " + victima.getPrioridad() + ", bloqueado desde el ciclo "
+                + victima.getCicloInicioBloqueo() + ", " + victima.getMemoria() + " bloques de swap)");
+        return true;
+    }
+
+    /** Reserva la RAM del proceso suspendido y pide al disco que lo lea del swap. */
+    boolean iniciarReactivacion(PCB p) {
+        if (!ram.reservar(p.getMemoria())) {
+            return false;
+        }
+        p.setReactivando(true);
+        gestorES.solicitarReactivacion(p, cicloActual);
+        registrar("Se reactiva al proceso " + p.getEtiqueta() + " (hay " + ram.getLibre() + " de RAM libre y necesita "
+                + p.getMemoria() + ")");
+        return true;
     }
 
     // =====================================================================
@@ -293,17 +399,24 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
         registro.registrar(cicloActual, mensaje);
     }
 
+    @Override
+    public SolicitudDisco solicitarArchivo(PCB pcb) throws ErrorOperacion {
+        return gestorES.solicitarArchivo(pcb, cicloActual);
+    }
+
     private void registrar(String mensaje) {
         registro.registrar(cicloActual, "Computador " + idComputador + " " + mensaje);
     }
 
     // =====================================================================
-    //  Consultas para la GUI ("fotos" de las colas, seguras entre hilos)
+    //  Consultas ("fotos" de las colas, seguras entre hilos)
     // =====================================================================
 
     public PCB[] getNuevos() { return nuevos.aArreglo(new PCB[0]); }
     public PCB[] getListos() { return listos.aArreglo(new PCB[0]); }
     public PCB[] getBloqueados() { return bloqueados.aArreglo(new PCB[0]); }
+    public PCB[] getListosSuspendidos() { return listosSuspendidos.aArreglo(new PCB[0]); }
+    public PCB[] getBloqueadosSuspendidos() { return bloqueadosSuspendidos.aArreglo(new PCB[0]); }
     public PCB[] getTerminados() { return terminados.aArreglo(new PCB[0]); }
     public PCB getProcesoEnCpu() { return cpu.getProcesoActual(); }
     public ModoCPU getModoCpu() { return cpu.getModo(); }
@@ -311,21 +424,37 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
     public int getQuantum() { return quantum; }
     public MemoriaPrincipal getRam() { return ram; }
     public MetricasComputador getMetricas() { return metricas; }
+    public MedianoPlazo getMedianoPlazo() { return medianoPlazo; }
 
-    /** Todos los procesos que ha recibido este computador (en cualquier estado). */
-    public PCB[] getTodosLosProcesos() {
-        PCB[] a = getNuevos();
-        PCB[] b = getListos();
-        PCB[] c = getBloqueados();
-        PCB[] d = getTerminados();
+    /** Procesos que todavía no terminaron, en cualquier cola (y el que está en la CPU). */
+    private PCB[] todosLosVivos() {
+        PCB[][] colas = {getNuevos(), getListos(), getBloqueados(), getListosSuspendidos(),
+            getBloqueadosSuspendidos()};
         PCB enCpu = cpu.getProcesoActual();
-        PCB[] todos = new PCB[a.length + b.length + c.length + d.length + (enCpu != null ? 1 : 0)];
+        int total = enCpu != null ? 1 : 0;
+        for (PCB[] c : colas) {
+            total += c.length;
+        }
+        PCB[] todos = new PCB[total];
         int n = 0;
-        for (PCB p : a) { todos[n++] = p; }
-        for (PCB p : b) { todos[n++] = p; }
-        for (PCB p : c) { todos[n++] = p; }
-        for (PCB p : d) { todos[n++] = p; }
-        if (enCpu != null) { todos[n++] = enCpu; }
+        for (PCB[] c : colas) {
+            for (PCB p : c) {
+                todos[n++] = p;
+            }
+        }
+        if (enCpu != null) {
+            todos[n++] = enCpu;
+        }
+        return todos;
+    }
+
+    /** Todos los procesos que ha recibido el computador (en cualquier estado). */
+    public PCB[] getTodosLosProcesos() {
+        PCB[] vivos = todosLosVivos();
+        PCB[] fin = getTerminados();
+        PCB[] todos = new PCB[vivos.length + fin.length];
+        System.arraycopy(vivos, 0, todos, 0, vivos.length);
+        System.arraycopy(fin, 0, todos, vivos.length, fin.length);
         return todos;
     }
 
@@ -333,9 +462,8 @@ public class Kernel implements ContextoEjecucion, GestorDesbloqueo {
         return Equidad.jain(getTodosLosProcesos(), cicloActual);
     }
 
-    /** Cantidad de procesos vivos en este computador (para el balanceo de carga automático). */
-    public int getCarga() {
-        return nuevos.tamano() + listos.tamano() + bloqueados.tamano()
-                + (cpu.getProcesoActual() != null ? 1 : 0);
-    }
+    // ---- Acceso a las colas para el planificador a mediano plazo (mismo paquete) ----
+    ListaSegura<PCB> colaNuevos() { return nuevos; }
+    ListaSegura<PCB> colaBloqueados() { return bloqueados; }
+    ListaSegura<PCB> colaListosSuspendidos() { return listosSuspendidos; }
 }
