@@ -186,13 +186,21 @@ public class SistemaAvilaOS {
     public PCB crearProcesoArchivo(String nombre, TipoOperacionES operacion, String ruta, int tamanoBloques,
             String nuevoNombre, Permiso permiso, int memoria, int prioridad, int deadline, int instrucciones)
             throws ErrorOperacion {
+        return crearProcesoArchivo(nombre, operacion, ruta, tamanoBloques, nuevoNombre, permiso, null, memoria,
+                prioridad, deadline, instrucciones);
+    }
+
+    /** Igual, indicando el dueño del elemento que se crea (solo el administrador puede elegir uno distinto de sí). */
+    public PCB crearProcesoArchivo(String nombre, TipoOperacionES operacion, String ruta, int tamanoBloques,
+            String nuevoNombre, Permiso permiso, String dueno, int memoria, int prioridad, int deadline,
+            int instrucciones) throws ErrorOperacion {
         EspecificacionProceso esp = EspecificacionProceso.archivo(nombre, instrucciones, memoria, prioridad, deadline,
-                operacion, ruta, tamanoBloques, nuevoNombre, sesion.getUsuario(), permiso);
+                operacion, ruta, tamanoBloques, nuevoNombre, sesion.getUsuario(), permiso, dueno);
         String error = esp.validar();
         if (error != null) {
             throw new ErrorOperacion(error);
         }
-        String rechazo = archivos.verificarPermiso(operacion, ruta, nuevoNombre, sesion.getUsuario());
+        String rechazo = archivos.verificarPermiso(operacion, ruta, nuevoNombre, sesion.getUsuario(), esp.dueno());
         if (rechazo != null) {
             registro.registrar(reloj.getCicloActual(), "Operación rechazada (" + operacion + " " + ruta + " por "
                     + sesion.getUsuario() + "): " + rechazo);

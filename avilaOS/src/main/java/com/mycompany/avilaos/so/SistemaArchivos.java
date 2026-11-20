@@ -173,15 +173,22 @@ public class SistemaArchivos {
      * @return el motivo del rechazo, o null si se permite
      */
     public String verificarPermiso(TipoOperacionES operacion, String ruta, String nuevoNombre, String usuario) {
+        return verificarPermiso(operacion, ruta, nuevoNombre, usuario, null);
+    }
+
+    /** Igual que la anterior, indicando además el dueño pedido para el elemento nuevo (solo CREAR). */
+    public String verificarPermiso(TipoOperacionES operacion, String ruta, String nuevoNombre, String usuario,
+            String duenoPedido) {
         mutex.acquireUninterruptibly();
         try {
-            return permisoInterno(operacion, ruta, nuevoNombre, usuario);
+            return permisoInterno(operacion, ruta, nuevoNombre, usuario, duenoPedido);
         } finally {
             mutex.release();
         }
     }
 
-    private String permisoInterno(TipoOperacionES operacion, String ruta, String nuevoNombre, String usuario) {
+    private String permisoInterno(TipoOperacionES operacion, String ruta, String nuevoNombre, String usuario,
+            String duenoPedido) {
         boolean admin = ModoUsuario.NOMBRE_ADMIN.equals(usuario);
         if (operacion == TipoOperacionES.CREAR) {
             String errorRuta = errorDeRuta(ruta);
@@ -198,6 +205,9 @@ public class SistemaArchivos {
             if (!admin && !usuario.equals(padre.getDueno())) {
                 return "Modo usuario: solo puedes crear dentro de tus propios directorios, y "
                         + padre.getRuta() + " pertenece a " + padre.getDueno();
+            }
+            if (!admin && duenoPedido != null && !duenoPedido.equals(usuario)) {
+                return "Modo usuario: solo el administrador puede crear elementos a nombre de otro usuario";
             }
             return null;
         }
@@ -253,7 +263,7 @@ public class SistemaArchivos {
         try {
             TipoOperacionES op = p.getOperacion();
             String ruta = p.getRutaArchivo();
-            String error = permisoInterno(op, ruta, p.getNuevoNombre(), p.getUsuario());
+            String error = permisoInterno(op, ruta, p.getNuevoNombre(), p.getUsuario(), p.getDueno());
             if (error != null) {
                 throw new ErrorOperacion(error);
             }
@@ -284,14 +294,14 @@ public class SistemaArchivos {
         }
         int tamano = p.getTamanoBloques();
         if (tamano == 0) {
-            NodoFS dir = new NodoFS(nombre, TipoNodo.DIRECTORIO, p.getUsuario(), p.getPermiso(), padre, autor,
+            NodoFS dir = new NodoFS(nombre, TipoNodo.DIRECTORIO, duenoDe(p), p.getPermiso(), padre, autor,
                     siguienteColor++);
             dir.setEnCreacion(true);
             padre.hijosInternos().agregarAlFinal(dir);
             version++;
             return new Operacion(TipoOperacionES.CREAR, dir, new NodoFS[]{dir}, new int[0], null);
         }
-        NodoFS archivo = new NodoFS(nombre, TipoNodo.ARCHIVO, p.getUsuario(), p.getPermiso(), padre, autor,
+        NodoFS archivo = new NodoFS(nombre, TipoNodo.ARCHIVO, duenoDe(p), p.getPermiso(), padre, autor,
                 siguienteColor++);
         int[] bloques = mapa.reservar(tamano, false, archivo);
         if (bloques == null) {
@@ -303,6 +313,11 @@ public class SistemaArchivos {
         padre.hijosInternos().agregarAlFinal(archivo);
         version++;
         return new Operacion(TipoOperacionES.CREAR, archivo, new NodoFS[]{archivo}, bloques, null);
+    }
+
+    /** Dueño del elemento que se crea: el pedido (ya validado) o, si no hay, el usuario del proceso. */
+    private static String duenoDe(PCB p) {
+        return p.getDueno() != null ? p.getDueno() : p.getUsuario();
     }
 
     private Operacion iniciarLeer(String ruta) throws ErrorOperacion {

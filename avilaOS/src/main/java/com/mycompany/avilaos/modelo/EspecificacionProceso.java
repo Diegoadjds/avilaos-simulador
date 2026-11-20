@@ -12,6 +12,9 @@ package com.mycompany.avilaos.modelo;
  * @param nuevoNombre   (E/S de archivo, ACTUALIZAR) nombre nuevo, o null para solo reescribir el archivo
  * @param usuario       dueño del proceso: "admin" o el usuario en cuyo nombre trabaja
  * @param permiso       (E/S de archivo, CREAR) permiso del archivo nuevo
+ * @param dueno         (E/S de archivo, CREAR) dueño del elemento nuevo; null = el usuario del proceso. Solo el
+ *                      administrador puede crear elementos a nombre de otro usuario (así prepara el directorio
+ *                      donde un usuario podrá crear sus archivos)
  */
 public record EspecificacionProceso(
         String nombre,
@@ -27,7 +30,8 @@ public record EspecificacionProceso(
         int tamanoBloques,
         String nuevoNombre,
         String usuario,
-        Permiso permiso) {
+        Permiso permiso,
+        String dueno) {
 
     public static final int MAX_NOMBRE = 30;
     public static final int MAX_INSTRUCCIONES = 1_000_000;
@@ -39,21 +43,28 @@ public record EspecificacionProceso(
     public static EspecificacionProceso cpuBound(String nombre, int instrucciones, int memoria,
             int prioridad, int deadline) {
         return new EspecificacionProceso(nombre, TipoProceso.CPU_BOUND, instrucciones, memoria,
-                prioridad, deadline, 0, 0, null, null, 0, null, ModoUsuario.NOMBRE_ADMIN, Permiso.PUBLICO);
+                prioridad, deadline, 0, 0, null, null, 0, null, ModoUsuario.NOMBRE_ADMIN, Permiso.PUBLICO, null);
     }
 
     public static EspecificacionProceso ioBound(String nombre, int instrucciones, int memoria,
             int prioridad, int deadline, int ciclosEntreEs, int duracionEs) {
         return new EspecificacionProceso(nombre, TipoProceso.IO_BOUND, instrucciones, memoria,
                 prioridad, deadline, ciclosEntreEs, duracionEs, null, null, 0, null,
-                ModoUsuario.NOMBRE_ADMIN, Permiso.PUBLICO);
+                ModoUsuario.NOMBRE_ADMIN, Permiso.PUBLICO, null);
     }
 
     public static EspecificacionProceso archivo(String nombre, int instrucciones, int memoria,
             int prioridad, int deadline, TipoOperacionES operacion, String ruta, int tamanoBloques,
             String nuevoNombre, String usuario, Permiso permiso) {
+        return archivo(nombre, instrucciones, memoria, prioridad, deadline, operacion, ruta, tamanoBloques,
+                nuevoNombre, usuario, permiso, null);
+    }
+
+    public static EspecificacionProceso archivo(String nombre, int instrucciones, int memoria,
+            int prioridad, int deadline, TipoOperacionES operacion, String ruta, int tamanoBloques,
+            String nuevoNombre, String usuario, Permiso permiso, String dueno) {
         return new EspecificacionProceso(nombre, TipoProceso.ES_ARCHIVO, instrucciones, memoria,
-                prioridad, deadline, 0, 0, operacion, ruta, tamanoBloques, nuevoNombre, usuario, permiso);
+                prioridad, deadline, 0, 0, operacion, ruta, tamanoBloques, nuevoNombre, usuario, permiso, dueno);
     }
 
     /** Validación de tipo/rango para la interfaz y los JSON. Devuelve el mensaje de error, o null si es válida. */
@@ -108,6 +119,9 @@ public record EspecificacionProceso(
         }
         if (usuario == null || usuario.isBlank()) {
             return "Debe indicar el usuario dueño del proceso";
+        }
+        if (dueno != null && !dueno.isBlank() && !dueno.trim().matches("[A-Za-z0-9_.-]{1,30}")) {
+            return "El dueño solo admite letras, números, punto, guion y guion bajo (máximo 30 caracteres)";
         }
         return null;
     }

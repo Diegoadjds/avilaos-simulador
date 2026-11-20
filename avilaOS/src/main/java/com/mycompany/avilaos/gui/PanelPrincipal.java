@@ -212,17 +212,18 @@ public class PanelPrincipal extends JPanel {
             }
         });
 
-        // --- Pestaña de simulación: computador y disco lado a lado, con el log debajo ---
+        // --- Pestaña de simulación: computador a la izquierda (alto completo); disco y log apilados a la derecha ---
         panelComputador = new PanelComputador(sistema);
         panelDisco = new PanelDisco(sistema);
-        JPanel centro = new JPanel(new GridLayout(1, 2, 10, 0));
-        centro.setBackground(Tema.FONDO);
-        centro.add(panelComputador);
-        centro.add(panelDisco);
         PanelLog panelLog = new PanelLog(sistema.getRegistro());
-        panelLog.setPreferredSize(new Dimension(800, 170));
-        JSplitPane simulacion = new JSplitPane(JSplitPane.VERTICAL_SPLIT, centro, panelLog);
-        simulacion.setResizeWeight(0.8);
+        panelLog.setPreferredSize(new Dimension(300, 150));
+        JSplitPane derecha = new JSplitPane(JSplitPane.VERTICAL_SPLIT, panelDisco, panelLog);
+        derecha.setResizeWeight(0.8);
+        derecha.setBorder(null);
+        derecha.setOpaque(false);
+        JSplitPane simulacion = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, panelComputador, derecha);
+        simulacion.setResizeWeight(0.58);
+        javax.swing.SwingUtilities.invokeLater(() -> simulacion.setDividerLocation(0.58));
         simulacion.setBorder(Tema.relleno(10, 0, 0, 0));
         simulacion.setOpaque(false);
 

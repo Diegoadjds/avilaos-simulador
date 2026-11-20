@@ -40,9 +40,9 @@ public class PanelMetricas extends JPanel {
 
         JPanel arriba = new JPanel(new GridLayout(2, 1, 0, 8));
         arriba.setOpaque(false);
-        arriba.add(envolver(cpu, "Rendimiento del procesador"));
-        arriba.add(envolver(resumen, "Disco y suspensión de procesos"));
-        arriba.setPreferredSize(new Dimension(600, 180));
+        arriba.add(envolverFija(cpu, "Rendimiento del procesador"));
+        arriba.add(envolverFija(resumen, "Disco y suspensión de procesos"));
+        arriba.setPreferredSize(new Dimension(600, 200));
         add(arriba, BorderLayout.NORTH);
 
         JPanel graf = new JPanel(new BorderLayout());
@@ -55,6 +55,22 @@ public class PanelMetricas extends JPanel {
         centro.add(envolver(disco, "Disco por política (desplazamiento y espera)"));
         centro.add(graf);
         add(centro, BorderLayout.CENTER);
+    }
+
+    /** Tabla de una sola fila: encabezado y fila fijos, sin barra de desplazamiento. */
+    private static JPanel envolverFija(Tabla modelo, String titulo) {
+        JTable t = new JTable(modelo);
+        Tema.estilizarTabla(t);
+        t.setRowHeight(26);
+        JPanel interior = new JPanel(new BorderLayout());
+        interior.setBackground(Tema.FONDO);
+        interior.add(t.getTableHeader(), BorderLayout.NORTH);
+        interior.add(t, BorderLayout.CENTER);
+        JPanel p = new JPanel(new BorderLayout());
+        p.setOpaque(false);
+        p.setBorder(BorderFactory.createCompoundBorder(Tema.borde(titulo), BorderFactory.createLineBorder(Tema.BORDE)));
+        p.add(interior, BorderLayout.NORTH);
+        return p;
     }
 
     private static JScrollPane envolver(Tabla modelo, String titulo) {
