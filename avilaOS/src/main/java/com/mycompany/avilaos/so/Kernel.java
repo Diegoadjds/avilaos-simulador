@@ -24,6 +24,10 @@ import com.mycompany.avilaos.so.planificacion.PoliticaPlanificacion;
  *   faseInicio()  ->  cpu.alCiclo()  ->  faseFin()
  */
 public class Kernel implements ContextoEjecucion {
+    private PCB ultimoEjecutado;
+    private String ultimaInstruccionTexto = "";
+    private ModoCPU ultimoModoEjecutado = ModoCPU.SISTEMA_OPERATIVO;
+    private long cicloUltimoEjecutado;
 
     private final int idComputador;
     private final MemoriaPrincipal ram;
@@ -82,6 +86,11 @@ public class Kernel implements ContextoEjecucion {
         metricas.registrarCiclo(r != null);
 
         if (p != null && r != null) {
+            // Foto para la interfaz: el proceso puede salir de la CPU (bloqueo o fin) en este mismo ciclo
+            ultimoEjecutado = p;
+            ultimaInstruccionTexto = p.getComportamiento().ultimaInstruccion(p);
+            ultimoModoEjecutado = r.getModo();
+            cicloUltimoEjecutado = ciclo;
             if (p.getInstruccionesRestantes() <= 0 || r.getAccion() == AccionInstruccion.TERMINAR) {
                 terminar(p, false);
             } else if (r.getAccion() == AccionInstruccion.BLOQUEAR) {
@@ -419,6 +428,12 @@ public class Kernel implements ContextoEjecucion {
     public PCB[] getBloqueadosSuspendidos() { return bloqueadosSuspendidos.aArreglo(new PCB[0]); }
     public PCB[] getTerminados() { return terminados.aArreglo(new PCB[0]); }
     public PCB getProcesoEnCpu() { return cpu.getProcesoActual(); }
+
+    /** Último proceso que ejecutó una instrucción (aunque ya haya salido de la CPU), o null si aún ninguno. */
+    public PCB getUltimoEjecutado() { return ultimoEjecutado; }
+    public String getUltimaInstruccionTexto() { return ultimaInstruccionTexto; }
+    public ModoCPU getUltimoModoEjecutado() { return ultimoModoEjecutado; }
+    public long getCicloUltimoEjecutado() { return cicloUltimoEjecutado; }
     public ModoCPU getModoCpu() { return cpu.getModo(); }
     public PoliticaPlanificacion getPolitica() { return tipoPolitica; }
     public int getQuantum() { return quantum; }

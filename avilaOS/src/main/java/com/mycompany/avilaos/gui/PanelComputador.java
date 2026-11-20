@@ -160,7 +160,10 @@ public class PanelComputador extends JPanel {
         if (cmbPolitica.getSelectedItem() != k.getPolitica()) {
             sincronizar();
         }
-        PCB p = k.getProcesoEnCpu();
+        PCB enCpu = k.getProcesoEnCpu();
+        // Un proceso puede entrar y salir de la CPU en el mismo ciclo (p. ej. al pedir E/S): si la CPU está libre se
+        // muestra el último que ejecutó, marcado como tal, para que el panel no quede siempre vacío.
+        PCB p = enCpu != null ? enCpu : k.getUltimoEjecutado();
         if (p == null) {
             cProceso.poner("CPU ociosa", Tema.TEXTO_SUAVE);
             cTipo.poner(SIN_DATO, Tema.TEXTO_SUAVE);
@@ -177,7 +180,12 @@ public class PanelComputador extends JPanel {
             cInstruccion.poner(SIN_DATO, Tema.TEXTO_SUAVE);
         } else {
             EstadoProceso estado = p.getEstado();
-            cProceso.poner(p.getEtiqueta() + " · " + p.getNombre(), Tema.TEXTO);
+            if (enCpu != null) {
+                cProceso.poner(p.getEtiqueta() + " · " + p.getNombre(), Tema.TEXTO);
+            } else {
+                cProceso.poner("Último: " + p.getEtiqueta(),
+                        Tema.TEXTO_SUAVE);
+            }
             cTipo.poner(p.getTipo().toString(), Tema.colorTipo(p.getTipo()));
             cEstado.poner(estado.toString(), Tema.colorEstado(estado));
             cComputador.poner(p.getUsuario(), Tema.TEXTO);
@@ -192,8 +200,13 @@ public class PanelComputador extends JPanel {
             boolean archivo = p.getOperacion() != null;
             cOperacion.poner(archivo ? p.getOperacion() + " " + nombreCorto(p.getRutaArchivo()) : SIN_DATO,
                     archivo ? Tema.CIAN : Tema.TEXTO_SUAVE);
-            cInstruccion.poner(p.getComportamiento().ultimaInstruccion(p),
-                    k.getModoCpu() == ModoCPU.USUARIO ? Tema.VERDE : Tema.NARANJA);
+            if (enCpu != null) {
+                cInstruccion.poner(p.getComportamiento().ultimaInstruccion(p),
+                        k.getModoCpu() == ModoCPU.USUARIO ? Tema.VERDE : Tema.NARANJA);
+            } else {
+                cInstruccion.poner(k.getUltimaInstruccionTexto(),
+                        k.getUltimoModoEjecutado() == ModoCPU.USUARIO ? Tema.VERDE : Tema.NARANJA);
+            }
         }
         ModoCPU modo = k.getModoCpu();
         if (modo == ModoCPU.USUARIO) {
