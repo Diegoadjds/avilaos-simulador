@@ -101,7 +101,7 @@ public class PanelDisco extends JPanel {
         JScrollPane sp = new JScrollPane(tabla);
         sp.setColumnHeaderView(tabla.getTableHeader());
         Tema.estilizarScroll(sp);
-        sp.setPreferredSize(new Dimension(10, 130));
+        sp.setPreferredSize(new Dimension(10, 70));
         JPanel cola = new JPanel(new BorderLayout());
         cola.setOpaque(false);
         cola.setBorder(bordeCola);

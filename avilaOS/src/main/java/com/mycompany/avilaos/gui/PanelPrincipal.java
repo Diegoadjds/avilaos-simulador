@@ -216,9 +216,21 @@ public class PanelPrincipal extends JPanel {
         panelComputador = new PanelComputador(sistema);
         panelDisco = new PanelDisco(sistema);
         PanelLog panelLog = new PanelLog(sistema.getRegistro());
-        panelLog.setPreferredSize(new Dimension(300, 150));
+        panelLog.setPreferredSize(new Dimension(300, 200));
         JSplitPane derecha = new JSplitPane(JSplitPane.VERTICAL_SPLIT, panelDisco, panelLog);
-        derecha.setResizeWeight(0.8);
+        derecha.setResizeWeight(0.7);
+        // El log queda con ~200 px (más alto que antes) y el resto es para Disco, que conserva el mapa legible
+        derecha.addComponentListener(new java.awt.event.ComponentAdapter() {
+            private boolean ajustado;
+
+            @Override
+            public void componentResized(java.awt.event.ComponentEvent e) {
+                if (!ajustado && derecha.getHeight() > 300) {
+                    ajustado = true;
+                    derecha.setDividerLocation(derecha.getHeight() - 200);
+                }
+            }
+        });
         derecha.setBorder(null);
         derecha.setOpaque(false);
         JSplitPane simulacion = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, panelComputador, derecha);

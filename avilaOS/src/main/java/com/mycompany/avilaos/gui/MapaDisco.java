@@ -91,7 +91,7 @@ public class MapaDisco extends JComponent {
                 int cols = Math.max(1, ancho / cw);
                 int filas = (n + cols - 1) / cols;
                 int ch = Math.min(alto / filas, 22);
-                if (ch >= 16) {
+                if (ch >= 15) {
                     celdaAncho = cw;
                     celdaAlto = ch;
                     encontrado = true;
