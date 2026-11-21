@@ -31,6 +31,7 @@ public class DialogoProcesoArchivo extends javax.swing.JDialog {
     private final JTextField txtRuta = new JTextField(24);
     private final JTextField txtTamano = new JTextField("1", 8);
     private final JTextField txtNuevoNombre = new JTextField(14);
+    private final JTextField txtDueno = new JTextField(14);
     private final JComboBox<Permiso> cmbPermiso = new JComboBox<>(Permiso.values());
     private final JTextField txtMemoria = new JTextField("16", 8);
     private final JTextField txtPrioridad = new JTextField("5", 8);
@@ -59,6 +60,7 @@ public class DialogoProcesoArchivo extends javax.swing.JDialog {
         DialogoProceso.fila(form, y++, "Ruta (por ejemplo /sistema/boot.bin):", txtRuta);
         DialogoProceso.fila(form, y++, "Crear – tamaño en bloques (0 = directorio):", txtTamano);
         DialogoProceso.fila(form, y++, "Crear – permiso:", cmbPermiso);
+        DialogoProceso.fila(form, y++, "Crear – dueño del elemento (solo admin; vacío = yo):", txtDueno);
         DialogoProceso.fila(form, y++, "Actualizar – nombre nuevo (vacío = solo reescribir):", txtNuevoNombre);
         DialogoProceso.fila(form, y++, "Memoria requerida:", txtMemoria);
         DialogoProceso.fila(form, y++, "Prioridad (1 = la más alta):", txtPrioridad);
@@ -95,6 +97,7 @@ public class DialogoProcesoArchivo extends javax.swing.JDialog {
         TipoOperacionES op = (TipoOperacionES) cmbOperacion.getSelectedItem();
         txtTamano.setEnabled(op == TipoOperacionES.CREAR);
         cmbPermiso.setEnabled(op == TipoOperacionES.CREAR);
+        txtDueno.setEnabled(op == TipoOperacionES.CREAR && sistema.getSesion().esAdministrador());
         txtNuevoNombre.setEnabled(op == TipoOperacionES.ACTUALIZAR);
     }
 
@@ -107,12 +110,14 @@ public class DialogoProcesoArchivo extends javax.swing.JDialog {
                     ? Entradas.entero(txtTamano, "Tamaño en bloques", 0, EspecificacionProceso.MAX_BLOQUES_ARCHIVO) : 0;
             String nuevoNombre = op == TipoOperacionES.ACTUALIZAR && !txtNuevoNombre.getText().isBlank()
                     ? txtNuevoNombre.getText().trim() : null;
+            String dueno = op == TipoOperacionES.CREAR && sistema.getSesion().esAdministrador()
+                    && !txtDueno.getText().isBlank() ? txtDueno.getText().trim() : null;
             int memoria = Entradas.entero(txtMemoria, "Memoria requerida", 1, EspecificacionProceso.MAX_MEMORIA);
             int prioridad = Entradas.entero(txtPrioridad, "Prioridad", 1, EspecificacionProceso.MAX_PRIORIDAD);
             int deadline = Entradas.entero(txtDeadline, "Deadline", 1, EspecificacionProceso.MAX_DEADLINE);
             int instrucciones = Entradas.entero(txtInstrucciones, "Instrucciones", 2, EspecificacionProceso.MAX_INSTRUCCIONES);
             PCB pcb = sistema.crearProcesoArchivo(nombre, op, ruta, tamano, nuevoNombre,
-                    (Permiso) cmbPermiso.getSelectedItem(), memoria, prioridad, deadline, instrucciones);
+                    (Permiso) cmbPermiso.getSelectedItem(), dueno, memoria, prioridad, deadline, instrucciones);
             contador++;
             txtNombre.setText("ES-" + contador);
             lblEstado.setText("Creado " + pcb.getEtiqueta() + " (" + op + " " + ruta + ")");

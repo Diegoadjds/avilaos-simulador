@@ -73,6 +73,9 @@ public final class RepositorioProcesos {
                     o.poner("newName", p.nuevoNombre());
                 }
                 o.poner("permissions", p.permiso().getCodigoJson());
+                if (p.dueno() != null) {
+                    o.poner("owner", p.dueno());
+                }
             } else if (p.tipo() == TipoProceso.IO_BOUND) {
                 o.poner("ioEvery", p.ciclosEntreEs());
                 o.poner("ioDuration", p.duracionEs());
@@ -162,8 +165,18 @@ public final class RepositorioProcesos {
         if (operacion == null || !operacion.esCrud()) {
             throw new ErrorEscenario(donde + ".operation: \"" + textoOp + "\" no es válida (use CREATE, READ, UPDATE o DELETE)");
         }
-        int tamano = Lector.entero(o, "fileSizeBlocks", donde + ".fileSizeBlocks");
+        int tamano = 0;
+        for (String clave : new String[]{"fileSizeBlocks", "sizeBlocks", "fileSize", "blocks", "size"}) {
+            if (o.contiene(clave)) {
+                tamano = Lector.entero(o, clave, donde + "." + clave);
+                break;
+            }
+        }
+        if (operacion == TipoOperacionES.CREAR && tamano == 0 && !o.contiene("fileSizeBlocks")) {
+            throw new ErrorEscenario(donde + ": la operación CREATE necesita fileSizeBlocks (tamaño en bloques; 0 crea un directorio)");
+        }
         String nuevoNombre = o.contiene("newName") ? Lector.cadena(o, "newName", donde + ".newName") : null;
+        String dueno = o.contiene("owner") ? Lector.cadena(o, "owner", donde + ".owner").trim() : null;
         Permiso permiso = ModoUsuario.NOMBRE_ADMIN.equals(usuario) ? Permiso.PUBLICO : Permiso.PRIVADO;
         if (o.contiene("permissions")) {
             String t = Lector.cadena(o, "permissions", donde + ".permissions");
@@ -173,7 +186,7 @@ public final class RepositorioProcesos {
             }
         }
         return EspecificacionProceso.archivo(nombre, instrucciones, memoria, prioridad, deadline, operacion, ruta,
-                tamano, nuevoNombre, usuario, permiso);
+                tamano, nuevoNombre, usuario, permiso, dueno);
     }
 
     private static String nombres(Enum<?>[] valores) {

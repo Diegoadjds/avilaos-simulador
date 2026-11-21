@@ -50,6 +50,9 @@ public class PruebasAvilaOS {
         crud(carpeta);
         System.out.println("== Modo usuario ==");
         modoUsuario(carpeta);
+        System.out.println("== Directorios de un usuario y JSON tal como lo pide el enunciado ==");
+        directorioDeUsuario(carpeta);
+        jsonSinCamposOpcionales(carpeta);
         System.out.println("== Suspensión de procesos (mediano plazo) ==");
         suspension(carpeta);
         System.out.println("== Deadline con operaciones pendientes ==");
@@ -283,6 +286,49 @@ public class PruebasAvilaOS {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private static void directorioDeUsuario(Path carpeta) throws Exception {
+        SistemaAvilaOS s = sistemaVacio(carpeta, SIN_PROCESOS);
+        boolean ok = false;
+        try {
+            s.crearProcesoArchivo("dir", TipoOperacionES.CREAR, "/usuarios/user1", 0, null,
+                    com.mycompany.avilaos.modelo.Permiso.PRIVADO, "user1", 8, 5, 1000, 3);
+            ok = true;
+        } catch (Exception e) {
+            ok = false;
+        }
+        verificar(ok, "el administrador crea un directorio con dueño user1");
+        correr(s, 40);
+        verificar(s.getArchivos().buscar("/usuarios/user1") != null
+                && "user1".equals(s.getArchivos().buscar("/usuarios/user1").getDueno()), "el directorio quedó a nombre de user1");
+        s.getSesion().entrarComoUsuario("user1");
+        verificar(intenta(s, TipoOperacionES.CREAR, "/usuarios/user1/informe.txt", null), "user1 crea un archivo en su directorio");
+        s.getSesion().entrarComoUsuario("user2");
+        verificar(!intenta(s, TipoOperacionES.CREAR, "/usuarios/user1/otro.txt", null), "user2 NO crea en el directorio de user1");
+        s.getSesion().entrarComoUsuario("user1");
+        boolean ajeno = true;
+        try {
+            s.crearProcesoArchivo("dir2", TipoOperacionES.CREAR, "/usuarios/user1/sub", 0, null,
+                    com.mycompany.avilaos.modelo.Permiso.PRIVADO, "user2", 8, 5, 1000, 3);
+        } catch (Exception e) {
+            ajeno = false;
+        }
+        verificar(!ajeno, "user1 NO crea elementos a nombre de otro usuario");
+        s.detener();
+    }
+
+    /** El JSON del PDF no trae fileSizeBlocks, priority, user ni newName: tienen que ser opcionales. */
+    private static void jsonSinCamposOpcionales(Path carpeta) throws Exception {
+        String json = "{\"globalConfig\":{\"cycleDurationMs\":300,\"swapSizeBlocks\":100,\"initialDiskPolicy\":\"FIFO\"},"
+                + "\"computer\":{\"ramCapacity\":1024,\"policy\":\"FCFS\",\"quantum\":0},\"processes\":["
+                + "{\"name\":\"Proc_95\",\"memory\":16,\"deadline\":500,\"instructions\":2,\"targetPath\":\"/sistema/config.sys\",\"operation\":\"READ\"},"
+                + "{\"name\":\"Proc_34\",\"memory\":16,\"deadline\":500,\"instructions\":2,\"targetPath\":\"/usuarios/notas.txt\",\"operation\":\"UPDATE\"},"
+                + "{\"name\":\"Proc_119\",\"memory\":16,\"deadline\":500,\"instructions\":2,\"targetPath\":\"/usuarios/img1.png\",\"operation\":\"DELETE\"}]}";
+        SistemaAvilaOS s = sistemaVacio(carpeta, json);
+        correr(s, 80);
+        verificar(todosTerminados(s), "los procesos del formato del enunciado (sin campos opcionales) terminan");
+        s.detener();
     }
 
     private static void suspension(Path carpeta) throws Exception {

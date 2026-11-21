@@ -104,8 +104,8 @@ public class ColasRejilla extends JPanel {
             tabla.setDefaultRenderer(Long.class, celdas);
 
             int[] anchos = modo == ModeloTablaPCB.NORMAL
-                    ? new int[]{24, 56, 44, 28, 30, 40, 34}
-                    : new int[]{24, 52, 44, 28, 30, 40, 30, 120};
+                    ? new int[]{26, 64, 48, 32, 36, 52, 38}
+                    : new int[]{26, 60, 48, 32, 36, 52, 38, 130};
             for (int i = 0; i < tabla.getColumnCount(); i++) {
                 tabla.getColumnModel().getColumn(i).setPreferredWidth(anchos[i]);
             }

@@ -29,6 +29,7 @@ public class PCB implements PropietarioBloques {
     private final String nuevoNombre;
     private final String usuario;
     private final Permiso permiso;
+    private final String dueno;
     private final ComportamientoProceso comportamiento;
 
     // ---- Estado dinámico ----
@@ -79,6 +80,7 @@ public class PCB implements PropietarioBloques {
         this.nuevoNombre = esp.nuevoNombre();
         this.usuario = esp.usuario() == null ? ModoUsuario.NOMBRE_ADMIN : esp.usuario();
         this.permiso = esp.permiso() == null ? Permiso.PRIVADO : esp.permiso();
+        this.dueno = esp.dueno() == null || esp.dueno().isBlank() ? null : esp.dueno().trim();
         this.comportamiento = comportamiento;
         this.deadlineRestante = esp.deadline();
         this.instruccionesRestantes = esp.instrucciones();
@@ -136,6 +138,8 @@ public class PCB implements PropietarioBloques {
     public String getNuevoNombre() { return nuevoNombre; }
     public String getUsuario() { return usuario; }
     public Permiso getPermiso() { return permiso; }
+    /** Dueño pedido para el elemento que crea este proceso (solo CREAR); null = el usuario del proceso. */
+    public String getDueno() { return dueno; }
     public ComportamientoProceso getComportamiento() { return comportamiento; }
     public EstadoProceso getEstado() { return estado; }
     public MotivoBloqueo getMotivoBloqueo() { return motivoBloqueo; }

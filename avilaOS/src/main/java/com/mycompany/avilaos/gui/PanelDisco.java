@@ -58,6 +58,13 @@ public class PanelDisco extends JPanel {
         lblPolitica.setForeground(Tema.TEXTO_SUAVE);
         JPanel derecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         Tema.transparente(derecha);
+        BotonModerno btnNumeros = new BotonModerno("Números: sí", BotonModerno.Tipo.NORMAL);
+        btnNumeros.addActionListener(e -> {
+            boolean ver = !mapa.isMostrarNumeros();
+            mapa.setMostrarNumeros(ver);
+            btnNumeros.setText(ver ? "Números: sí" : "Números: no");
+        });
+        derecha.add(btnNumeros);
         derecha.add(lblPolitica);
         derecha.add(cmbPolitica);
         JPanel fila1 = new JPanel(new BorderLayout());
@@ -94,7 +101,7 @@ public class PanelDisco extends JPanel {
         JScrollPane sp = new JScrollPane(tabla);
         sp.setColumnHeaderView(tabla.getTableHeader());
         Tema.estilizarScroll(sp);
-        sp.setPreferredSize(new Dimension(10, 130));
+        sp.setPreferredSize(new Dimension(10, 70));
         JPanel cola = new JPanel(new BorderLayout());
         cola.setOpaque(false);
         cola.setBorder(bordeCola);
