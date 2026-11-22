@@ -1,0 +1,18 @@
+{
+  "globalConfig": {
+    "cycleDurationMs": 300,
+    "swapSizeBlocks": 100,
+    "initialDiskPolicy": "SSTF"
+  },
+  "computer": {
+    "ramCapacity": 48,
+    "policy": "FCFS",
+    "quantum": 0
+  },
+  "processes": [
+    { "name": "io1", "type": "IO_BOUND", "memory": 16, "deadline": 3000, "instructions": 6, "priority": 2, "ioEvery": 1, "ioDuration": 60 },
+    { "name": "io2", "type": "IO_BOUND", "memory": 16, "deadline": 3000, "instructions": 6, "priority": 9, "ioEvery": 1, "ioDuration": 60 },
+    { "name": "io3", "type": "IO_BOUND", "memory": 16, "deadline": 3000, "instructions": 6, "priority": 4, "ioEvery": 1, "ioDuration": 60 },
+    { "name": "nuevo", "type": "CPU_BOUND", "memory": 16, "deadline": 3000, "instructions": 8, "priority": 1 }
+  ]
+}
