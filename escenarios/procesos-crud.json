@@ -1,0 +1,20 @@
+{
+  "globalConfig": {
+    "cycleDurationMs": 300,
+    "swapSizeBlocks": 100,
+    "initialDiskPolicy": "SCAN"
+  },
+  "computer": {
+    "ramCapacity": 1024,
+    "policy": "FCFS",
+    "quantum": 0
+  },
+  "processes": [
+    { "name": "crea-informe", "memory": 16, "deadline": 600, "instructions": 2, "targetPath": "/usuarios/informe.txt", "operation": "CREATE", "fileSizeBlocks": 4, "permissions": "public" },
+    { "name": "lee-config", "memory": 16, "deadline": 600, "instructions": 2, "targetPath": "/sistema/config.sys", "operation": "READ", "fileSizeBlocks": 0 },
+    { "name": "actualiza-notas", "memory": 16, "deadline": 600, "instructions": 2, "targetPath": "/usuarios/notas.txt", "operation": "UPDATE", "fileSizeBlocks": 3, "user": "user1" },
+    { "name": "renombra-data", "memory": 16, "deadline": 600, "instructions": 2, "targetPath": "/usuarios/data.csv", "operation": "UPDATE", "newName": "datos.csv", "fileSizeBlocks": 0 },
+    { "name": "borra-video", "memory": 16, "deadline": 600, "instructions": 2, "targetPath": "/usuarios/video.mp4", "operation": "DELETE", "fileSizeBlocks": 0, "user": "user1" },
+    { "name": "intruso", "memory": 16, "deadline": 600, "instructions": 2, "targetPath": "/usuarios/notas.txt", "operation": "DELETE", "fileSizeBlocks": 0, "user": "user2" }
+  ]
+}
