@@ -20,7 +20,7 @@ import javax.swing.table.AbstractTableModel;
 public class PanelMetricas extends JPanel {
 
     private static final String[] COL_CPU = {"Utilización CPU", "Throughput (proc/ciclo)", "Respuesta prom. (ciclos)",
-        "Cumplimiento deadline", "Completados", "Vencidos", "Fallidos de E/S"};
+        "Cumplimiento deadline", "Completados", "Vencidos", "Fallidos de E/S", "Equidad (Jain)"};
     private static final String[] COL_DISCO = {"Política de disco", "Solicitudes atendidas", "Desplazamiento (pistas)",
         "Espera prom. (ciclos)"};
 
@@ -89,7 +89,8 @@ public class PanelMetricas extends JPanel {
         cpu.poner(0, String.format("%.1f%%", m.getUtilizacion() * 100), String.format("%.3f", m.getThroughput()),
                 String.format("%.1f", m.getTiempoRespuestaPromedio()),
                 String.format("%.0f%%", m.getTasaCumplimientoDeadline() * 100), String.valueOf(m.getCompletados()),
-                String.valueOf(m.getVencidos()), String.valueOf(m.getFallidosES()));
+                String.valueOf(m.getVencidos()), String.valueOf(m.getFallidosES()),
+                String.format("%.3f", sistema.getComputador().getKernel().getEquidad()));
         MetricasDisco d = sistema.getMetricasDisco();
         resumen.poner(0, String.format("%.1f%%", d.getUtilizacion() * 100), String.valueOf(d.getDesplazamientoTotal()),
                 String.valueOf(d.getSuspensiones()), String.valueOf(d.getReactivaciones()));
